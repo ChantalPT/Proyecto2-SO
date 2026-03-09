@@ -7,12 +7,13 @@ package edu.unimetproyecto2.estructuras;
 /**
  *
  * @author pinto
+ * @param <T> Tipo de dato que tendrá el nodo.
  */
-public class Nodos <T>{
+public class Nodo <T>{
     private T dato;  // contenido del nodo
-    private Nodos<T> siguiente; // apuntador al siguiente nodo
+    private Nodo<T> siguiente; // apuntador al siguiente nodo
     
-    public Nodos(T dato) {
+    public Nodo(T dato) {
         this.dato = dato;
         this.siguiente = null;
     }
@@ -24,15 +25,13 @@ public class Nodos <T>{
         this.dato = dato;
     }
 
-    public Nodos<T> getSiguiente() {
+    public Nodo<T> getSiguiente() {
         return siguiente;
     }
 
-    public void setSiguiente(Nodos<T> siguiente) {
+    public void setSiguiente(Nodo<T> siguiente) {
         this.siguiente = siguiente;
     }
     
     
 }
-
-
