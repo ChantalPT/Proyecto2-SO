@@ -15,12 +15,14 @@ public class Nodo <T>{
     
     public Nodo(T dato) {
         this.dato = dato;
-        this.siguiente = null;
+        this.siguiente = null; // Al iniciar, no apunta a nadie
     }
     
+    // Getters y Setters (obligatorios para que la lista lo manipule)
     public T getDato(){
         return dato;
     }
+    
     public void setDato(T dato) {
         this.dato = dato;
     }
