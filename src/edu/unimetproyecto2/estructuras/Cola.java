@@ -11,54 +11,57 @@ package edu.unimetproyecto2.estructuras;
  */
 
 public class Cola<T> {
-    private Nodo<T> cabeza; // Inicio, final y tamaño de la cola
-    private Nodo<T> cola;
-    private int size; 
+    private Nodo<T> frente; // Inicio de la cola, el que sera tendido
+    private Nodo<T> ultimo; // Final de la cola, el ultimo que llegó
+    private int tamano; // Tamaño de la cola
     
     public Cola() {
-        this.cabeza = null;
-        this.cola = null;
-        this.size = 0;
+        this.frente = null;
+        this.ultimo = null;
+        this.tamano = 0;
     }
     
-    public boolean isEmpty () { // Confirma que la cola esta vacia
-        return cabeza == null;
-    }
     
     public void encolar(T dato) { //Encolar. Agrega al final de la cola o si esta
                                   //vacia newNodo se convierte en cabeza y cola
-        Nodo<T>  newNodo = new Nodo<>(dato);
-        if (isEmpty()) {
-            cabeza = newNodo;
-            cola = newNodo;
+        Nodo<T>  nuevoNodo = new Nodo<>(dato);
+        if (estaVacia()) {
+            frente = nuevoNodo;
+            ultimo = nuevoNodo;
         } else {
-            cola.setSiguiente(newNodo);
-            cola = newNodo;
+            ultimo.setSiguiente(nuevoNodo);
+            ultimo = nuevoNodo;
         }
-        size++;
+        tamano++;
+    }
+    
+    public boolean estaVacia() { // Confirma que la cola esta vacia
+    return frente == null;
     }
     
     public T desencolar() {
-        if (isEmpty()){
+        if (estaVacia()){
             return null;
         }
-        T dato = cabeza.getDato(); // Guarda el dato antes de cambiar head
-        cabeza = cabeza.getSiguiente(); //El head.getNext se vuelve la principal
+        T dato = frente.getDato(); // Guarda el dato antes de cambiar head
+        frente = frente.getSiguiente(); //El head.getNext se vuelve la principal
         
-        if (cabeza == null) { //Si queda vacia, todo debe ser null (cabeza y cola)
-            cola = null;
+        if (frente == null) { //Si queda vacia, todo debe ser null (cabeza y cola)
+            ultimo = null;
         }
         
-        size--;
+        tamano--;
         return dato;
     }
     
-    public int getSize() {
-        return size;
+    public T verFrente() {
+    if (estaVacia()) 
+        return null;
+    return frente.getDato();
     }
     
-    public Nodo<T> getHead() {
-        return cabeza;
+    public int getTamano() {
+        return tamano;
     }
 }
 
