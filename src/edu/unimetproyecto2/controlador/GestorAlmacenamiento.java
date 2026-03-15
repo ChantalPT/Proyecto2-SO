@@ -35,15 +35,18 @@ public class GestorAlmacenamiento {
     }
 
     //Validador de permisos
-    public boolean tienePermiso(Entrada entrada) {
+    public boolean tienePermiso(String operacion) {
         if (this.usuarioActual.equals("Administrador")) {
             return true;
         }
-        return entrada.getDueno().equals(this.usuarioActual);
+        return operacion.equals("LEER");
     }
 
     //CRUD
     public String crearDirectorio(String nombre) {
+        if (!tienePermiso("CREAR")) {
+            return "ERROR: Acceso denegado. Solo el Administrador puede crear directorios.";
+        }
         Directorio nuevoDir = new Directorio(nombre, this.usuarioActual, this.directorioActual);
         this.directorioActual.agregarHijo(nuevoDir);
         return "Directorio '" + nombre + "' creado con éxito.";
@@ -51,14 +54,19 @@ public class GestorAlmacenamiento {
     
     //Logica CRUD
     public String crearArchivo(String nombre, int tamanoBloques, Color color) {
-        Archivo nuevoArchivo = new Archivo(nombre, this.usuarioActual, tamanoBloques, -1, color, this.directorioActual);  
+        if (!tienePermiso("CREAR")) {
+            return "ERROR: Acceso denegado. Solo el Administrador puede crear archivos.";
+        }
+        
+        // Creamos el archivo y le pedimos al disco que intente guardarlo
+        Archivo nuevoArchivo = new Archivo(nombre, this.usuarioActual, tamanoBloques, -1, color, this.directorioActual);
         boolean guardadoExitoso = this.disco.asignarArchivo(nuevoArchivo);
         
         if (guardadoExitoso) {
             this.directorioActual.agregarHijo(nuevoArchivo);
             return "Archivo '" + nombre + "' guardado correctamente.";
         } else {
-            return "ERROR:\n No hay espacio suficiente en el disco para " + tamanoBloques + " bloques.";
+            return "ERROR: No hay espacio suficiente en el disco para " + tamanoBloques + " bloques.";
         }
     }
     
@@ -67,8 +75,8 @@ public class GestorAlmacenamiento {
             return "ERROR:\n '" + entrada.getNombre() + "' es un directorio. Usa la navegación para entrar.";
         }
         
-        if (!tienePermiso(entrada)) {
-            return "ERROR:\n Acceso denegado. No tienes permiso para leer el archivo '" + entrada.getNombre() + "'.";
+        if (!tienePermiso("LEER")) {
+            return "ERROR: Acceso denegado. No tienes permiso para leer.";
         }
 
         Archivo archivo = (Archivo) entrada;
@@ -80,8 +88,8 @@ public class GestorAlmacenamiento {
     }
     
     public String modificarNombre(Entrada entrada, String nuevoNombre) {
-        if (!tienePermiso(entrada)) {
-            return "ERROR:\n Permiso denegado. Solo el dueño o el Administrador pueden modificar.";
+        if (!tienePermiso("MODIFICAR")) {
+            return "ERROR:\n Permiso denegado. Solo el Administrador puede modificar.";
         }
         String nombreViejo = entrada.getNombre();
         entrada.setNombre(nuevoNombre);
@@ -92,8 +100,8 @@ public class GestorAlmacenamiento {
         if (entrada == raiz) {
             return "ERROR:\n Sistema protegido. No puedes eliminar la carpeta Raíz.";
         }
-        if (!tienePermiso(entrada)) {
-            return "ERROR:\n Permiso denegado para eliminar '" + entrada.getNombre() + "'.";
+        if (!tienePermiso("ELIMINAR")) {
+            return "ERROR:\n Permiso denegado. Solo el Administrador puede eliminar archivos o directorios.";
         }
 
         // Si es archivo se liberan sus bloquees en el disco
@@ -125,6 +133,36 @@ public class GestorAlmacenamiento {
             }
             dir.removerHijo(hijo);
         }
+    }
+    
+    //CD
+    //Entrar a una carpeta
+    public String entrarDirectorio(String nombreCarpeta) { 
+        int cantidadHijos = directorioActual.getHijos().getTamano(); 
+        for (int i = 0; i < cantidadHijos; i++) {
+            Entrada hijo = directorioActual.getHijos().obtener(i);
+            
+            if (hijo.getNombre().equals(nombreCarpeta)) { //Buscar si es carpeta
+                if (hijo.isEsDirectorio()) {
+                    this.directorioActual = (Directorio) hijo; 
+                    return "Éxito: Entraste a la carpeta '" + nombreCarpeta + "'.";
+                } else {
+                    return "ERROR: '" + nombreCarpeta + "' es un archivo, no puedes entrar en él.";
+                }
+            }
+        }
+        return "ERROR: La carpeta '" + nombreCarpeta + "' no existe en este directorio.";
+    }
+    
+    //Salir de una carpeta
+    public String subirDirectorio() {
+        if (this.directorioActual == this.raiz) {
+            return "ERROR: Ya estás en la Raíz. No puedes retroceder más.";
+        }
+        
+        //Ir a la carpeta padre
+        this.directorioActual = (Directorio) this.directorioActual.getPadre();
+        return "Éxito: Regresaste a la carpeta '" + this.directorioActual.getNombre() + "'.";
     }
 
     //Getters
