@@ -48,7 +48,6 @@ public class GestorAlmacenamiento {
         this.directorioActual.agregarHijo(nuevoDir);
         return "Directorio '" + nombre + "' creado con éxito.";
     }
-    
 
     //GETTERS
     public DiscoVirtual getDisco() { 
