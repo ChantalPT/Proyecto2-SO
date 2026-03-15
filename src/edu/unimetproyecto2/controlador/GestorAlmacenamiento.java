@@ -48,8 +48,86 @@ public class GestorAlmacenamiento {
         this.directorioActual.agregarHijo(nuevoDir);
         return "Directorio '" + nombre + "' creado con éxito.";
     }
+    
+    //Logica CRUD
+    public String crearArchivo(String nombre, int tamanoBloques, Color color) {
+        Archivo nuevoArchivo = new Archivo(nombre, this.usuarioActual, tamanoBloques, -1, color, this.directorioActual);  
+        boolean guardadoExitoso = this.disco.asignarArchivo(nuevoArchivo);
+        
+        if (guardadoExitoso) {
+            this.directorioActual.agregarHijo(nuevoArchivo);
+            return "Archivo '" + nombre + "' guardado correctamente.";
+        } else {
+            return "ERROR:\n No hay espacio suficiente en el disco para " + tamanoBloques + " bloques.";
+        }
+    }
+    
+    public String leerArchivo(Entrada entrada) {
+        if (entrada.isEsDirectorio()) { //No se lee la carpeta
+            return "ERROR:\n '" + entrada.getNombre() + "' es un directorio. Usa la navegación para entrar.";
+        }
+        
+        if (!tienePermiso(entrada)) {
+            return "ERROR:\n Acceso denegado. No tienes permiso para leer el archivo '" + entrada.getNombre() + "'.";
+        }
 
-    //GETTERS
+        Archivo archivo = (Archivo) entrada;
+        return "LEYENDO ARCHIVO \n" +
+               "Nombre: " + archivo.getNombre() + "\n" +
+               "Dueño: " + archivo.getDueno() + "\n" +
+               "Tamaño: " + archivo.getTamanoBloques() + " bloques en el disco.\n" +
+               "Lectura exitosa.";
+    }
+    
+    public String modificarNombre(Entrada entrada, String nuevoNombre) {
+        if (!tienePermiso(entrada)) {
+            return "ERROR:\n Permiso denegado. Solo el dueño o el Administrador pueden modificar.";
+        }
+        String nombreViejo = entrada.getNombre();
+        entrada.setNombre(nuevoNombre);
+        return "Éxito: '" + nombreViejo + "' ha sido renombrado a '" + nuevoNombre + "'.";
+    }
+    
+    public String eliminarEntrada(Entrada entrada) {
+        if (entrada == raiz) {
+            return "ERROR:\n Sistema protegido. No puedes eliminar la carpeta Raíz.";
+        }
+        if (!tienePermiso(entrada)) {
+            return "ERROR:\n Permiso denegado para eliminar '" + entrada.getNombre() + "'.";
+        }
+
+        // Si es archivo se liberan sus bloquees en el disco
+        if (!entrada.isEsDirectorio()) {
+            disco.liberarArchivo((Archivo) entrada);
+        } else {
+            // Si es directorio se borra todo su contenido primero 
+            vaciarDirectorio((Directorio) entrada);
+        }
+
+        //Desconectar de la carpeta padre
+        Directorio padre = (Directorio) entrada.getPadre();
+        if (padre != null) {
+            padre.removerHijo(entrada);
+        }
+
+        return "Éxito:\n '" + entrada.getNombre() + "' eliminado del sistema y bloques liberados.";
+    }
+    
+    //Para borrar todo lo interno a la carpeta y libera los bloques
+    private void vaciarDirectorio(Directorio dir) {
+        while (!dir.getHijos().estaVacia()) {
+            Entrada hijo = dir.getHijos().obtener(0);
+            
+            if (!hijo.isEsDirectorio()) {
+                disco.liberarArchivo((Archivo) hijo);
+            } else {
+                vaciarDirectorio((Directorio) hijo); //Llamada recursiva
+            }
+            dir.removerHijo(hijo);
+        }
+    }
+
+    //Getters
     public DiscoVirtual getDisco() { 
         return disco; 
     }
