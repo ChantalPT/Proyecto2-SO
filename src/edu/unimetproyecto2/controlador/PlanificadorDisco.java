@@ -150,4 +150,68 @@ public class PlanificadorDisco {
 
         return new Resultado(secuencia, desplazamiento);
     }
+    
+    //Circular SCAN
+    public Resultado ejecutarCSCAN(ListaEnlazada solicitudes) {
+        ListaEnlazada secuencia = new ListaEnlazada();
+        int desplazamiento = 0;
+        int actual = this.posicionCabezal;
+        int n = solicitudes.getTamano();
+
+        if (n == 0) return new Resultado(secuencia, 0);
+        int[] arr = new int[n];
+        for (int i = 0; i < n; i++) {
+            arr[i] = (int) solicitudes.obtener(i);
+        }
+
+        for (int i = 0; i < n - 1; i++) {
+            for (int j = 0; j < n - i - 1; j++) {
+                if (arr[j] > arr[j + 1]) {
+                    int temp = arr[j];
+                    arr[j] = arr[j + 1];
+                    arr[j + 1] = temp;
+                }
+            }
+        }
+
+        //Separar en grupos
+        ListaEnlazada mayores = new ListaEnlazada();
+        ListaEnlazada menores = new ListaEnlazada();
+        for (int i = 0; i < n; i++) {
+            if (arr[i] >= actual) {
+                mayores.insertar(arr[i]);
+            } else {
+                menores.insertar(arr[i]);
+            }
+        }
+
+        //Recorrer para arriba
+        for (int i = 0; i < mayores.getTamano(); i++) {
+            int bloque = (int) mayores.obtener(i);
+            secuencia.insertar(bloque);
+            desplazamiento += Math.abs(bloque - actual);
+            actual = bloque;
+        }
+
+        //Menores? dar salto circular al bloque 0
+        if (!menores.estaVacia()) {
+            int limiteDisco = this.tamanoDisco - 1;
+            
+            if (actual != limiteDisco) {
+                desplazamiento += Math.abs(limiteDisco - actual);
+            }
+            
+            actual = 0; 
+            desplazamiento += limiteDisco; 
+            
+            for (int i = 0; i < menores.getTamano(); i++) {
+                int bloque = (int) menores.obtener(i);
+                secuencia.insertar(bloque);
+                desplazamiento += Math.abs(bloque - actual);
+                actual = bloque;
+            }
+        }
+
+        return new Resultado(secuencia, desplazamiento);
+    }
 }
