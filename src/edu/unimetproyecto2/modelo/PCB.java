@@ -15,12 +15,14 @@ public class PCB {
     private String operacion; //CRUD
     private Entrada objetivo; //el archivo o carpeta
     private String estado;
+    private Object[] parametros; //Guardar nombres nuevos, tamaños, colores, etc
     
     public PCB(String usuario, String operacion, Entrada objetivo) {
         this.pid = contadorPID++;
         this.usuario = usuario;
         this.operacion = operacion;
         this.objetivo = objetivo;
+        this.parametros = parametros;
         this.estado = "LISTO"; //Siempre inicia en listo.
     }
 
