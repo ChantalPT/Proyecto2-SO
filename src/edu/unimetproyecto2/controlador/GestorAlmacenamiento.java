@@ -18,7 +18,9 @@ public class GestorAlmacenamiento {
     private DiscoVirtual disco;
     private Directorio raiz;
     private Directorio directorioActual;
-    private String usuarioActual; 
+    private String usuarioActual;
+    private ManejadorJournaling journal;
+    private boolean simularFallo;
 
     public GestorAlmacenamiento(int tamanoDisco) {
         this.disco = new DiscoVirtual(tamanoDisco);
@@ -26,6 +28,8 @@ public class GestorAlmacenamiento {
         this.raiz = new Directorio("Raiz", "Administrador", null); 
         this.directorioActual = this.raiz;
         this.usuarioActual = "Administrador"; //Admin por defecto
+        this.journal = new ManejadorJournaling();
+        this.simularFallo = false;
     }
     
     
@@ -54,16 +58,22 @@ public class GestorAlmacenamiento {
     
     //Logica CRUD
     public String crearArchivo(String nombre, int tamanoBloques, Color color) {
-        if (!tienePermiso("CREAR")) {
+        if (!tienePermiso("CREAR")) 
             return "ERROR: Acceso denegado. Solo el Administrador puede crear archivos.";
-        }
         
-        // Creamos el archivo y le pedimos al disco que intente guardarlo
+        //Anotar en el journal
+        RegistroJournaling tx = this.journal.registrar("CREAR_ARCHIVO", nombre);
+        //Creamos el archivo y le pedimos al disco que intente guardarlo
         Archivo nuevoArchivo = new Archivo(nombre, this.usuarioActual, tamanoBloques, -1, color, this.directorioActual);
         boolean guardadoExitoso = this.disco.asignarArchivo(nuevoArchivo);
         
         if (guardadoExitoso) {
             this.directorioActual.agregarHijo(nuevoArchivo);
+            if (this.simularFallo) {
+                //El método termina, la transacción queda PENDIENTE
+                return "FALLO DEL SISTEMA: La creación de '" + nombre + "' se interrumpió y quedó pendiente.";
+            }
+            tx.confirmar();
             return "Archivo '" + nombre + "' guardado correctamente.";
         } else {
             return "ERROR: No hay espacio suficiente en el disco para " + tamanoBloques + " bloques.";
@@ -103,6 +113,12 @@ public class GestorAlmacenamiento {
         if (!tienePermiso("ELIMINAR")) {
             return "ERROR:\n Permiso denegado. Solo el Administrador puede eliminar archivos o directorios.";
         }
+        
+        String nombreObjeto = entrada.getNombre();
+        String tipoOperacion = entrada.isEsDirectorio() ? "ELIMINAR_DIRECTORIO" : "ELIMINAR_ARCHIVO";
+
+        // 1. ANOTAR EN EL JOURNAL
+        RegistroJournaling tx = this.journal.registrar(tipoOperacion, nombreObjeto);
 
         // Si es archivo se liberan sus bloquees en el disco
         if (!entrada.isEsDirectorio()) {
@@ -117,8 +133,12 @@ public class GestorAlmacenamiento {
         if (padre != null) {
             padre.removerHijo(entrada);
         }
+        if (this.simularFallo) {
+            return "💥 FALLO SIMULADO: La eliminación de '" + nombreObjeto + "' provocó un crash y quedó PENDIENTE.";
+        }
 
-        return "Éxito:\n '" + entrada.getNombre() + "' eliminado del sistema y bloques liberados.";
+        tx.confirmar();
+        return "Éxito: '" + nombreObjeto + "' eliminado del sistema y bloques liberados.";
     }
     
     //Para borrar todo lo interno a la carpeta y libera los bloques
@@ -164,6 +184,43 @@ public class GestorAlmacenamiento {
         this.directorioActual = (Directorio) this.directorioActual.getPadre();
         return "Éxito: Regresaste a la carpeta '" + this.directorioActual.getNombre() + "'.";
     }
+    
+    public String recuperarSistema() {
+        // Pedimos al Journal la lista de todo lo que se rompió
+        edu.unimetproyecto2.estructuras.ListaEnlazada pendientes = journal.obtenerPendientes();
+        
+        if (pendientes.estaVacia()) {
+            return "El sistema está estable. No hay operaciones pendientes en el Journal.";
+        }
+
+        int cantidadFallos = pendientes.getTamano();
+        
+        // Recorremos las operaciones fallidas
+        for (int i = 0; i < cantidadFallos; i++) {
+            RegistroJournaling tx = (RegistroJournaling) pendientes.obtener(i);
+
+            // Si estábamos creando un archivo/directorio y falló, la forma de "deshacerlo" es buscarlo y borrarlo
+            if (tx.getOperacion().equals("CREAR_ARCHIVO") || tx.getOperacion().equals("CREAR_DIRECTORIO")) {
+                
+                // Buscamos si el archivo se llegó a crear a medias en la carpeta actual
+                for (int j = 0; j < directorioActual.getHijos().getTamano(); j++) {
+                    Entrada hijo = directorioActual.getHijos().obtener(j);
+                    if (hijo.getNombre().equals(tx.getNombreEntrada())) {
+                        // Lo borramos físicamente para deshacer el error
+                        if (!hijo.isEsDirectorio()) {
+                            disco.liberarArchivo((Archivo) hijo);
+                        }
+                        directorioActual.removerHijo(hijo);
+                        break; // Salimos del for de búsqueda
+                    }
+                }
+            }
+            // Marcamos la transacción como resuelta para que no vuelva a molestar
+            tx.confirmar(); 
+        }
+
+        return "Recuperación completada (Rollback). Se deshicieron " + cantidadFallos + " operaciones corruptas.";
+    }
 
     //Getters
     public DiscoVirtual getDisco() { 
@@ -197,5 +254,12 @@ public class GestorAlmacenamiento {
     public void setUsuarioActual(String usuarioActual) {
         this.usuarioActual = usuarioActual;
     }
+    
+    public ManejadorJournaling getJournal() {
+        return this.journal;
+    }
 
+    public void setSimularFallo(boolean simularFallo) {
+        this.simularFallo = simularFallo;
+    }
 }

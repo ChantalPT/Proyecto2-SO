@@ -21,6 +21,10 @@ public class RegistroJournaling {
         this.nombreEntrada = nombreEntrada;
         this.estado = "PENDIENTE"; 
     }
+    
+    public void confirmar() {
+        this.estado = "CONFIRMADA";
+    }
 
     //Getters y Setters
     public static int getContadorGlobal() {
