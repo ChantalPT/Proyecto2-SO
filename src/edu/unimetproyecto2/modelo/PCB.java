@@ -73,6 +73,16 @@ public class PCB {
     public void setEstado(String estado) {
         this.estado = estado;
     }
+
+    public Object[] getParametros() {
+        return parametros;
+    }
+
+    public void setParametros(Object[] parametros) {
+        this.parametros = parametros;
+    }
+    
+    
     
     @Override
     public String toString() {
