@@ -45,6 +45,10 @@ public class GestorAlmacenamiento {
         }
         return operacion.equals("LEER");
     }
+    
+    public String exportarEstadoJSON(String rutaDestino) {
+        return ManejadorJSON.exportarSistema(this.raiz, rutaDestino);
+    }
 
     //CRUD
     public String crearDirectorio(String nombre) {
@@ -134,7 +138,7 @@ public class GestorAlmacenamiento {
             padre.removerHijo(entrada);
         }
         if (this.simularFallo) {
-            return "💥 FALLO SIMULADO: La eliminación de '" + nombreObjeto + "' provocó un crash y quedó PENDIENTE.";
+            return "FALLO SIMULADO: La eliminación de '" + nombreObjeto + "' provocó un crash y quedó PENDIENTE.";
         }
 
         tx.confirmar();
@@ -186,7 +190,7 @@ public class GestorAlmacenamiento {
     }
     
     public String recuperarSistema() {
-        // Pedimos al Journal la lista de todo lo que se rompió
+        //Ver lista de todo lo que se da;o
         edu.unimetproyecto2.estructuras.ListaEnlazada pendientes = journal.obtenerPendientes();
         
         if (pendientes.estaVacia()) {
@@ -195,11 +199,10 @@ public class GestorAlmacenamiento {
 
         int cantidadFallos = pendientes.getTamano();
         
-        // Recorremos las operaciones fallidas
         for (int i = 0; i < cantidadFallos; i++) {
             RegistroJournaling tx = (RegistroJournaling) pendientes.obtener(i);
 
-            // Si estábamos creando un archivo/directorio y falló, la forma de "deshacerlo" es buscarlo y borrarlo
+            //Buscar y borrar el archivo o directorio si fallo en el proceo
             if (tx.getOperacion().equals("CREAR_ARCHIVO") || tx.getOperacion().equals("CREAR_DIRECTORIO")) {
                 
                 // Buscamos si el archivo se llegó a crear a medias en la carpeta actual
@@ -221,8 +224,25 @@ public class GestorAlmacenamiento {
 
         return "Recuperación completada (Rollback). Se deshicieron " + cantidadFallos + " operaciones corruptas.";
     }
+    
+    public String importarEstadoJSON(String rutaOrigen) {
+        // Vaciar el disco actual creando uno nuevo para cargar los datos limpios
+        int tamanoAnterior = this.disco.getTamanoTotal();
+        this.disco = new DiscoVirtual(tamanoAnterior); 
+        
+        Directorio raizCargada = ManejadorJSON.importarSistema(rutaOrigen, this.disco);
+        
+        if (raizCargada != null) {
+            this.raiz = raizCargada;
+            this.directorioActual = this.raiz; 
+            this.journal = new ManejadorJournaling(); //Resetear el log de fallos
+            return "Sistema cargado desde: " + rutaOrigen;
+        } else {
+            return "ERROR: El archivo JSON está corrupto o no existe.";
+        }
+    }
 
-    //Getters
+    //Getters y setters
     public DiscoVirtual getDisco() { 
         return disco; 
     }
