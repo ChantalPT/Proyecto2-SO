@@ -27,11 +27,60 @@ public class GestorAlmacenamiento {
         this.directorioActual = this.raiz;
         this.usuarioActual = "Administrador"; //Admin por defecto
     }
+    
+    
+    //Usuarios
+    public void cambiarUsuario(String nuevoUsuario) {
+        this.usuarioActual = nuevoUsuario;
+    }
+
+    //Validador de permisos
+    public boolean tienePermiso(Entrada entrada) {
+        if (this.usuarioActual.equals("Administrador")) {
+            return true;
+        }
+        return entrada.getDueno().equals(this.usuarioActual);
+    }
+
+    //CRUD
+    public String crearDirectorio(String nombre) {
+        Directorio nuevoDir = new Directorio(nombre, this.usuarioActual, this.directorioActual);
+        this.directorioActual.agregarHijo(nuevoDir);
+        return "Directorio '" + nombre + "' creado con éxito.";
+    }
+    
 
     //GETTERS
-    public DiscoVirtual getDisco() { return disco; }
-    public Directorio getRaiz() { return raiz; }
-    public Directorio getDirectorioActual() { return directorioActual; }
-    public String getUsuarioActual() { return usuarioActual; }
+    public DiscoVirtual getDisco() { 
+        return disco; 
+    }
+    
+    public Directorio getRaiz() { 
+        return raiz; 
+    }
+    
+    public Directorio getDirectorioActual() { 
+        return directorioActual; 
+    }
+    
+    public String getUsuarioActual() { 
+        return usuarioActual; 
+    }
+
+    public void setDisco(DiscoVirtual disco) {
+        this.disco = disco;
+    }
+
+    public void setRaiz(Directorio raiz) {
+        this.raiz = raiz;
+    }
+
+    public void setDirectorioActual(Directorio directorioActual) {
+        this.directorioActual = directorioActual;
+    }
+
+    public void setUsuarioActual(String usuarioActual) {
+        this.usuarioActual = usuarioActual;
+    }
 
 }
