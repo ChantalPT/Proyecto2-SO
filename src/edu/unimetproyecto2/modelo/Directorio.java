@@ -22,6 +22,10 @@ public class Directorio extends Entrada {
     public void agregarHijo(Entrada nuevaEntrada) {
         this.hijos.insertar(nuevaEntrada);
     }
+    
+    public void removerHijo(Entrada entradaAEliminar) { //Para CRUD
+        this.hijos.remover(entradaAEliminar);
+    }
 
     public ListaEnlazada<Entrada> getHijos() {
         return hijos;
