@@ -225,7 +225,61 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnCrearActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCrearActionPerformed
-        // TODO add your handling code here:
+        try {
+            // 1. Pedir datos al usuario (Ventanas simples)
+            String nombre = javax.swing.JOptionPane.showInputDialog(this, "Nombre del archivo:");
+            String tamStr = javax.swing.JOptionPane.showInputDialog(this, "Tamaño (en bloques):");
+
+            if (nombre == null || tamStr == null) return; // Si cancela, no hacemos nada
+            int tamano = Integer.parseInt(tamStr);
+
+            // 2. Buscar y asignar bloques (Asignación Encadenada)
+            int bloqueAnterior = -1;
+            int primerBloque = -1;
+            java.awt.Color colorAzar = new java.awt.Color((int)(Math.random() * 0x1000000));
+
+            // Verificamos si hay espacio suficiente antes de empezar
+            // (Podrías hacer un método en DiscoVirtual para contar libres)
+
+            for (int i = 0; i < tamano; i++) {
+                int libre = disco.buscarBloqueLibre();
+                if (libre == -1) {
+                    txtLog.append("Error: No hay suficiente espacio en disco.\n");
+                    return;
+                }
+
+                // Ocupamos el bloque en la lógica
+                edu.unimetproyecto2.modelo.Bloque b = disco.getBloque(libre);
+                b.setOcupado(true);
+                b.setNombreArchivo(nombre);
+                b.setColorArchivo(colorAzar);
+
+                // Encadenamiento
+                if (bloqueAnterior != -1) {
+                    disco.getBloque(bloqueAnterior).setSiguienteBloque(libre);
+                } else {
+                    primerBloque = libre; // Guardamos el inicio del archivo
+                }
+                bloqueAnterior = libre;
+
+                // 3. Actualizar Visualmente el cuadrito en el panel central
+                visualBloques[libre].setBackground(colorAzar);
+                visualBloques[libre].setToolTipText("Archivo: " + nombre);
+            }
+
+            // 4. Crear el objeto Archivo y añadirlo al sistema
+            edu.unimetproyecto2.modelo.Archivo nuevo = new edu.unimetproyecto2.modelo.Archivo(
+                    nombre, "Admin", tamano, primerBloque, colorAzar, rootLogico);
+
+            rootLogico.getHijos().insertar(nuevo);
+
+            // 5. Refrescar el JTree y el Log
+            actualizarArbol();
+            txtLog.append("Archivo '" + nombre + "' creado con éxito (" + tamano + " bloques).\n");
+
+        } catch (NumberFormatException e) {
+            javax.swing.JOptionPane.showMessageDialog(this, "Error: El tamaño debe ser un número.");
+          }
     }//GEN-LAST:event_btnCrearActionPerformed
 
     /**
