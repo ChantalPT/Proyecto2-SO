@@ -1,8 +1,17 @@
+package edu.unimetproyecto2.gui;
+
 /*
  * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
  * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
  */
-package edu.unimetproyecto2.gui;
+
+import edu.unimetproyecto2.modelo.DiscoVirtual;
+import javax.swing.JLabel;
+import javax.swing.tree.DefaultMutableTreeNode;
+import javax.swing.tree.DefaultTreeModel;
+import edu.unimetproyecto2.modelo.Directorio;
+import edu.unimetproyecto2.modelo.Archivo;
+import edu.unimetproyecto2.modelo.Entrada;
 
 /**
  *
@@ -12,11 +21,95 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     
     private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(VentanaPrincipal.class.getName());
 
-    /**
-     * Creates new form VentanaPrincipal
-     */
+    // Atributos de la lógica (Fase 1)
+    private DiscoVirtual disco; 
+    private JLabel[] visualBloques; // Un arreglo para guardar los cuadritos y poder cambiarlos luego
+    // Atributos del Árbol
+    private Directorio rootLogico;       // La carpeta raíz real (Lógica)
+    private DefaultTreeModel modeloArbol; // El motor que dibuja el árbol (Visual)
+
     public VentanaPrincipal() {
-        initComponents();
+        initComponents(); // ¡No borrar esto!
+        
+        // Inicializamos nuestro disco de la Fase 1 (ejemplo: 100 bloques)
+        disco = new DiscoVirtual(100); 
+        visualBloques = new JLabel[100];
+        
+        // Llamamos al método que dibujará todo
+        inicializarPanelDisco();
+        
+        // 1. Creamos la carpeta Raíz de la Fase 1
+        rootLogico = new Directorio("Root", "Admin", null);
+
+        // 2. Creamos el "Nodo Visual" que el JTree entiende
+        DefaultMutableTreeNode nodoRaizVisual = new DefaultMutableTreeNode(rootLogico.getNombre());
+
+        // 3. Creamos el modelo usando ese nodo
+        modeloArbol = new DefaultTreeModel(nodoRaizVisual);
+
+        // 4. Le decimos al componente JTree que use este modelo
+        treeArchivos.setModel(modeloArbol);
+        
+        // Opcional: Prueba rápida para ver si funciona
+        Archivo prueba = new Archivo("HolaMundo.txt", "Admin", 1, 0, java.awt.Color.BLUE, rootLogico);
+        rootLogico.getHijos().insertar(prueba); // Usamos tu lista enlazada
+        
+        actualizarArbol(); // Método que haremos ahora
+    }
+    
+    private void inicializarPanelDisco() {
+        // 1. Limpiar el panel por si acaso
+        panelDisco.removeAll(); 
+
+        // 2. Usar un bucle para crear cada bloque visual
+        for (int i = 0; i < disco.getTamanoTotal(); i++) {
+            // Creamos un JLabel que servirá como "cuadrito"
+            JLabel cuadro = new JLabel(String.valueOf(i), javax.swing.SwingConstants.CENTER);
+
+            // Configuración visual del cuadrito
+            cuadro.setOpaque(true); // Necesario para que se vea el color de fondo
+            cuadro.setBackground(java.awt.Color.WHITE); // Blanco = Libre
+            cuadro.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.GRAY));
+            cuadro.setFont(new java.awt.Font("Segoe UI", 0, 9)); // Letra pequeña para el número
+
+            // Guardamos la referencia en nuestro arreglo para usarla después
+            visualBloques[i] = cuadro;
+
+            // 3. Añadir el cuadrito al panel que dibujamos en la interfaz
+            panelDisco.add(cuadro);
+        }
+
+        // 4. Refrescar la interfaz para que aparezcan
+        panelDisco.revalidate();
+        panelDisco.repaint();
+    }
+    
+    private void actualizarArbol() {
+        // Creamos el nodo raíz visual de nuevo para refrescar todo
+        DefaultMutableTreeNode visualRoot = new DefaultMutableTreeNode(rootLogico.getNombre());
+        
+        // Llamamos a una función que recorra los hijos
+        llenarNodos(visualRoot, rootLogico);
+        
+        // Le pasamos el nuevo diseño al modelo
+        modeloArbol.setRoot(visualRoot);
+        modeloArbol.reload(); // Obliga al JTree a redibujarse
+    }
+
+    private void llenarNodos(DefaultMutableTreeNode nodoVisual, Directorio directorioLogico) {
+        // Recorremos la ListaEnlazada de hijos
+        for (int i = 0; i < directorioLogico.getHijos().getTamano(); i++) {
+            Entrada hijo = directorioLogico.getHijos().obtener(i);
+            
+            // Creamos el nodo para este hijo
+            DefaultMutableTreeNode nuevoNodoVisual = new DefaultMutableTreeNode(hijo.getNombre());
+            nodoVisual.add(nuevoNodoVisual);
+            
+            // Si ese hijo es una carpeta, tenemos que entrar y ver qué tiene dentro
+            if (hijo.isEsDirectorio()) {
+                llenarNodos(nuevoNodoVisual, (Directorio) hijo);
+            }
+        }
     }
 
     /**
@@ -155,11 +248,13 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             logger.log(java.util.logging.Level.SEVERE, null, ex);
         }
         //</editor-fold>
-
+        java.awt.EventQueue.invokeLater(() -> {
+        VentanaPrincipal vista = new VentanaPrincipal();
+        vista.setVisible(true);
+        vista.setLocationRelativeTo(null); // Esto la centra en la pantalla
+        });
         /* Create and display the form */
-        java.awt.EventQueue.invokeLater(() -> new VentanaPrincipal().setVisible(true));
     }
-
     // Variables declaration - do not modify//GEN-BEGIN:variables
     private javax.swing.JButton btnConfig;
     private javax.swing.JButton btnCrear;
