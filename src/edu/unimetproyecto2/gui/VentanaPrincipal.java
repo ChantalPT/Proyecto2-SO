@@ -12,6 +12,7 @@ import javax.swing.tree.DefaultTreeModel;
 import edu.unimetproyecto2.modelo.Directorio;
 import edu.unimetproyecto2.modelo.Archivo;
 import edu.unimetproyecto2.modelo.Entrada;
+import javax.swing.table.DefaultTableModel;
 
 /**
  *
@@ -24,9 +25,12 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     // Atributos de la lógica (Fase 1)
     private DiscoVirtual disco; 
     private JLabel[] visualBloques; // Un arreglo para guardar los cuadritos y poder cambiarlos luego
+    
     // Atributos del Árbol
     private Directorio rootLogico;       // La carpeta raíz real (Lógica)
     private DefaultTreeModel modeloArbol; // El motor que dibuja el árbol (Visual)
+    
+    private DefaultTableModel modeloTablaArchivos;
 
     public VentanaPrincipal() {
         initComponents(); // ¡No borrar esto!
@@ -37,6 +41,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         
         // Llamamos al método que dibujará todo
         inicializarPanelDisco();
+        
         
         // 1. Creamos la carpeta Raíz de la Fase 1
         rootLogico = new Directorio("Root", "Admin", null);
@@ -55,6 +60,13 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         rootLogico.getHijos().insertar(prueba); // Usamos tu lista enlazada
         
         actualizarArbol(); // Método que haremos ahora
+        
+        
+        // 1. Obtenemos el modelo que ya creamos en el diseño de NetBeans
+        modeloTablaArchivos = (DefaultTableModel) tablaArchivos.getModel();
+        
+        // 2. Limpiamos cualquier fila de ejemplo que haya puesto NetBeans
+        modeloTablaArchivos.setRowCount(0);
     }
     
     private void inicializarPanelDisco() {
@@ -108,6 +120,31 @@ public class VentanaPrincipal extends javax.swing.JFrame {
             // Si ese hijo es una carpeta, tenemos que entrar y ver qué tiene dentro
             if (hijo.isEsDirectorio()) {
                 llenarNodos(nuevoNodoVisual, (Directorio) hijo);
+            }
+        }
+    }
+    
+    private void actualizarTabla() {
+        // 1. Limpiamos la tabla para no duplicar datos
+        modeloTablaArchivos.setRowCount(0);
+
+        // 2. Recorremos los hijos del root (Fase 1)
+        for (int i = 0; i < rootLogico.getHijos().getTamano(); i++) {
+            edu.unimetproyecto2.modelo.Entrada entrada = rootLogico.getHijos().obtener(i);
+
+            // Solo nos interesan los ARCHIVOS para esta tabla
+            if (!entrada.isEsDirectorio()) {
+                edu.unimetproyecto2.modelo.Archivo arc = (edu.unimetproyecto2.modelo.Archivo) entrada;
+
+                // 3. Creamos la fila con los datos del archivo
+                Object[] fila = new Object[4];
+                fila[0] = arc.getNombre();
+                fila[1] = arc.getTamanoBloques();
+                fila[2] = arc.getBloqueInicial();
+                fila[3] = "■"; // Un cuadrito para representar el color
+
+                // 4. Agregamos la fila al modelo
+                modeloTablaArchivos.addRow(fila);
             }
         }
     }
@@ -275,6 +312,7 @@ public class VentanaPrincipal extends javax.swing.JFrame {
 
             // 5. Refrescar el JTree y el Log
             actualizarArbol();
+            actualizarTabla();
             txtLog.append("Archivo '" + nombre + "' creado con éxito (" + tamano + " bloques).\n");
 
         } catch (NumberFormatException e) {
