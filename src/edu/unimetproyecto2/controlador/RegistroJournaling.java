@@ -13,12 +13,15 @@ public class RegistroJournaling {
     private int idTransaccion;
     private String operacion;
     private String nombreEntrada;
+    private int tamano; // Cantidad de bloques (ej. 30)
     private String estado;
     
-    public RegistroJournaling(String operacion, String nombreEntrada) {
+    // Constructor ACTUALIZADO para recibir 3 parámetros
+    public RegistroJournaling(String operacion, String nombreEntrada, int tamano) {
         this.idTransaccion = contadorGlobal++;
         this.operacion = operacion;
         this.nombreEntrada = nombreEntrada;
+        this.tamano = tamano; // Ahora sí recibe el valor correctamente
         this.estado = "PENDIENTE"; 
     }
     
@@ -26,7 +29,16 @@ public class RegistroJournaling {
         this.estado = "CONFIRMADA";
     }
 
-    //Getters y Setters
+    // --- Getters y Setters ---
+    
+    public int getTamano() { 
+        return tamano; 
+    }
+    
+    public void setTamano(int tamano) { 
+        this.tamano = tamano; 
+    }
+    
     public static int getContadorGlobal() {
         return contadorGlobal;
     }
@@ -69,7 +81,6 @@ public class RegistroJournaling {
     
     @Override
     public String toString() {
-        return "TX-" + idTransaccion + " | " + operacion + " '" + nombreEntrada + "' | Estado: " + estado;
+        return "TX-" + idTransaccion + " | " + operacion + " '" + nombreEntrada + "' | Tam: " + tamano + " | Estado: " + estado;
     }
-    
 }

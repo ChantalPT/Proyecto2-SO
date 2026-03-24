@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package edu.unimetproyecto2.controlador;
 
 import edu.unimetproyecto2.estructuras.Cola;
@@ -10,7 +6,6 @@ import edu.unimetproyecto2.modelo.Entrada;
 import edu.unimetproyecto2.modelo.PCB;
 
 /**
- *
  * @author pinto
  */
 public class PlanificadorProcesos {
@@ -34,28 +29,25 @@ public class PlanificadorProcesos {
             return "No hay procesos en la cola de listos";
         }
         
-        PCB pcb = colaListos.desencolar(); //Se desencola al primero de la fila
+        PCB pcb = colaListos.desencolar(); 
         Entrada objetivo = pcb.getObjetivo();
         String resultado = "";
 
-        //Verificar locks (Control de Concurrencia) 
-        //Locks estrictos si el objetivo = Archivo
+        // --- CONTROL DE CONCURRENCIA ---
         if (objetivo != null && !objetivo.isEsDirectorio()) {
             Archivo arch = (Archivo) objetivo;
             boolean esOperacionEscritura = !pcb.getOperacion().equals("LEER_ARCHIVO");
 
-            //Si quiero escribir y hay lectores activos entonces bloquear
             if (arch.isBloqueadoEscritura() || (esOperacionEscritura && arch.getLectoresActivos() > 0)) {
                 pcb.setEstado("BLOQUEADO");
                 colaBloqueados.encolar(pcb); 
                 return "Proceso " + pcb.getPid() + " [" + pcb.getOperacion() + "] BLOQUEADO por concurrencia en '" + arch.getNombre() + "'";
             }
 
-            //Aplico Lock temporalmente si pasa el filtro
             if (esOperacionEscritura) {
                 arch.setBloqueadoEscritura(true);
             } else {
-                arch.agregarLector(); //lock compartido (entra a leer)
+                arch.agregarLector(); 
             }
         }
 
@@ -63,8 +55,10 @@ public class PlanificadorProcesos {
         Object[] params = pcb.getParametros();
         gestor.cambiarUsuario(pcb.getUsuario());
 
+        // --- EJECUCIÓN DE OPERACIÓN ---
         switch (pcb.getOperacion()) {
             case "CREAR_ARCHIVO":
+                // Los índices deben coincidir con VentanaPrincipal
                 resultado = gestor.crearArchivo((String)params[0], (Integer)params[1], (java.awt.Color)params[2]);
                 break;
             case "CREAR_DIRECTORIO":
@@ -80,10 +74,10 @@ public class PlanificadorProcesos {
                 resultado = gestor.eliminarEntrada(objetivo);
                 break;
             default:
-                resultado = "ERROR:\n Operación del PCB desconocida.";
+                resultado = "ERROR: Operación desconocida.";
         }
 
-        //Liberar locks
+        // --- LIBERAR LOCKS ---
         if (objetivo != null && !objetivo.isEsDirectorio()) {
             Archivo arch = (Archivo) objetivo;
             if (!pcb.getOperacion().equals("LEER_ARCHIVO")) {
@@ -98,15 +92,51 @@ public class PlanificadorProcesos {
         return "Proceso " + pcb.getPid() + " finalizado.\n> " + resultado;
     }
     
-    // Mover procesos de Bloqueados a Listos
     private void revisarBloqueados() {
         int tamano = colaBloqueados.getTamano(); 
         for (int i = 0; i < tamano; i++) {
             PCB pcbBloqueado = colaBloqueados.desencolar();
-            
-            //Se regresa a la cola de Listos para que lo vuelva a intentar en el siguiente ciclo
             pcbBloqueado.setEstado("LISTO");
             colaListos.encolar(pcbBloqueado);
         }
+    }
+    
+    public boolean tieneProcesosEsperando() {
+        return !colaListos.estaVacia();
+    }
+
+    public int getCantidadProcesos() {
+        return colaListos.getTamano();
+    }
+
+    // --- CORRECCIÓN CLAVE PARA LA SIMULACIÓN VISUAL ---
+    public int obtenerBloqueDeProceso(int indice) {
+        if (indice < 0 || indice >= colaListos.getTamano()) return 0;
+
+        PCB p = colaListos.obtener(indice); 
+
+        if (p.getOperacion().equals("CREAR_ARCHIVO")) {
+            // El bloque destino es el índice 3 según tu VentanaPrincipal
+            return (int) p.getParametros()[3]; 
+        } else if (p.getObjetivo() != null && !p.getObjetivo().isEsDirectorio()) {
+            // Si es LEER, MODIFICAR o ELIMINAR, usamos el bloque donde ya existe el archivo
+            return ((edu.unimetproyecto2.modelo.Archivo) p.getObjetivo()).getBloqueInicial();
+        }
+
+        return 0; 
+    }
+
+    public Cola<PCB> getColaListos() {
+        return colaListos;
+    }
+
+    public PCB obtenerSiguiente() {
+        for (int i = 0; i < colaListos.getTamano(); i++) {
+            PCB p = colaListos.obtener(i);
+            if (p.getEstado().equals("LISTO")) {
+                return p;
+            }
+        }
+        return null; 
     }
 }

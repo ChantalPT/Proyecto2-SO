@@ -1,211 +1,151 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package edu.unimetproyecto2.controlador;
 
 import edu.unimetproyecto2.estructuras.ListaEnlazada;
 
 /**
- *
  * @author pinto
  */
 public class PlanificadorDisco {
-    private int posicionCabezal;
     private int tamanoDisco;
 
     public PlanificadorDisco(int posicionInicial, int tamanoDisco) {
-        this.posicionCabezal = posicionInicial;
         this.tamanoDisco = tamanoDisco;
     }
     
-    public void setPosicionCabezal(int posicionCabezal) {
-        this.posicionCabezal = posicionCabezal;
-    }
-    
     public class Resultado {
-        public ListaEnlazada secuenciaAtencion; // Usamos tu lista
+        public ListaEnlazada<Integer> secuenciaAtencion; 
         public int desplazamientoTotal;
 
-        public Resultado(ListaEnlazada secuencia, int desplazamiento) {
+        public Resultado(ListaEnlazada<Integer> secuencia, int desplazamiento) {
             this.secuenciaAtencion = secuencia;
             this.desplazamientoTotal = desplazamiento;
         }
     }
-    
-    //FIFO
-    public Resultado ejecutarFIFO(ListaEnlazada solicitudes) {
-        ListaEnlazada secuencia = new ListaEnlazada();
-        int desplazamiento = 0;
-        int actual = this.posicionCabezal;
 
-        int cantidad = solicitudes.getTamano();
-        for (int i = 0; i < cantidad; i++) {
-            int solicitud = (int) solicitudes.obtener(i);  
+    // --- MÉTODOS DE APOYO (ORDENAMIENTO EFICIENTE) ---
+    
+    private void quickSort(int[] arr, int bajo, int alto) {
+        if (bajo < alto) {
+            int pi = particion(arr, bajo, alto);
+            quickSort(arr, bajo, pi - 1);
+            quickSort(arr, pi + 1, alto);
+        }
+    }
+
+    private int particion(int[] arr, int bajo, int alto) {
+        int pivote = arr[alto];
+        int i = (bajo - 1);
+        for (int j = bajo; j < alto; j++) {
+            if (arr[j] < pivote) {
+                i++;
+                int temp = arr[i];
+                arr[i] = arr[j];
+                arr[j] = temp;
+            }
+        }
+        int temp = arr[i + 1];
+        arr[i + 1] = arr[alto];
+        arr[alto] = temp;
+        return i + 1;
+    }
+
+    // --- ALGORITMOS ---
+
+    public Resultado ejecutarFIFO(ListaEnlazada<Integer> solicitudes) {
+        ListaEnlazada<Integer> secuencia = new ListaEnlazada<>();
+        int desplazamiento = 0;
+        int actual = 0; 
+
+        for (int i = 0; i < solicitudes.getTamano(); i++) {
+            int solicitud = solicitudes.obtener(i);  
             secuencia.insertar(solicitud);
             desplazamiento += Math.abs(solicitud - actual); 
             actual = solicitud;
         }
-        
         return new Resultado(secuencia, desplazamiento);
     }
-    
-    //Shortest Seek Time Fisrt
-    public Resultado ejecutarSSTF(ListaEnlazada solicitudes) {
-        ListaEnlazada pendientes = new ListaEnlazada();
-        int cantidadOriginal = solicitudes.getTamano();
-        for(int i = 0; i < cantidadOriginal; i++) {
+
+    public Resultado ejecutarSSTF(ListaEnlazada<Integer> solicitudes, int posicionActual) {
+        ListaEnlazada<Integer> pendientes = new ListaEnlazada<>();
+        for(int i = 0; i < solicitudes.getTamano(); i++) {
             pendientes.insertar(solicitudes.obtener(i));
         }
 
-        ListaEnlazada secuencia = new ListaEnlazada();
+        ListaEnlazada<Integer> secuencia = new ListaEnlazada<>();
         int desplazamiento = 0;
-        int actual = this.posicionCabezal;
+        int actual = posicionActual;
 
         while (!pendientes.estaVacia()) { 
             int indiceMasCercano = 0;
-            int distanciaMinima = Math.abs((int)pendientes.obtener(0) - actual);
+            int distanciaMinima = Integer.MAX_VALUE;
 
-            for (int i = 1; i < pendientes.getTamano(); i++) {
-                int distancia = Math.abs((int)pendientes.obtener(i) - actual);
+            for (int i = 0; i < pendientes.getTamano(); i++) {
+                int distancia = Math.abs(pendientes.obtener(i) - actual);
                 if (distancia < distanciaMinima) {
                     distanciaMinima = distancia;
                     indiceMasCercano = i;
                 }
             }
 
-            //Se anota el elegido
-            int siguiente = (int) pendientes.obtener(indiceMasCercano);
-            pendientes.remover(indiceMasCercano);
-            secuencia.insertar(siguiente);
+            Integer elegido = pendientes.obtener(indiceMasCercano);
+            pendientes.remover(elegido);
+            secuencia.insertar(elegido);
             desplazamiento += distanciaMinima;
-            actual = siguiente;
+            actual = elegido;
         }
-
         return new Resultado(secuencia, desplazamiento);
     }
-    
-    //Algoritmo del ascensor
-    public Resultado ejecutarSCAN(ListaEnlazada solicitudes) {
-        ListaEnlazada secuencia = new ListaEnlazada();
+
+    public Resultado ejecutarSCAN(ListaEnlazada<Integer> solicitudes, int posicionActual, boolean haciaArriba) {
+        ListaEnlazada<Integer> secuencia = new ListaEnlazada<>();
         int desplazamiento = 0;
-        int actual = this.posicionCabezal;
+        int actual = posicionActual;
         int n = solicitudes.getTamano();
 
         if (n == 0) return new Resultado(secuencia, 0);
 
-        //Se convierte la lista en una arreglo para ordenarlo facil
+        // Pasamos a arreglo para usar QuickSort
         int[] arr = new int[n];
         for (int i = 0; i < n; i++) {
-            arr[i] = (int) solicitudes.obtener(i);
+            arr[i] = solicitudes.obtener(i);
         }
 
-        //Ordenar de menor a mayor
-        for (int i = 0; i < n - 1; i++) {
-            for (int j = 0; j < n - i - 1; j++) {
-                if (arr[j] > arr[j + 1]) {
-                    int temp = arr[j];
-                    arr[j] = arr[j + 1];
-                    arr[j + 1] = temp;
-                }
-            }
+        // --- ORDENAMIENTO QUICK SORT (O(n log n)) ---
+        quickSort(arr, 0, n - 1);
+
+        ListaEnlazada<Integer> mayores = new ListaEnlazada<>();
+        ListaEnlazada<Integer> menores = new ListaEnlazada<>();
+        
+        for (int valor : arr) {
+            if (valor >= actual) mayores.insertar(valor);
+            else menores.insertar(valor);
         }
 
-        //Se separa en los que están más adelante y los que están atrás
-        ListaEnlazada mayores = new ListaEnlazada();
-        ListaEnlazada menores = new ListaEnlazada();
-        for (int i = 0; i < n; i++) {
-            if (arr[i] >= actual) {
-                mayores.insertar(arr[i]);
-            } else {
-                menores.insertar(arr[i]); 
-            }
-        }
-
-        //Recorrer par arriba
-        for (int i = 0; i < mayores.getTamano(); i++) {
-            int bloque = (int) mayores.obtener(i);
-            secuencia.insertar(bloque);
-            desplazamiento += Math.abs(bloque - actual);
-            actual = bloque;
-        }
-
-        //Si quedaron menores, bajar nuevamente
-        if (!menores.estaVacia()) {
-            int limiteDisco = this.tamanoDisco - 1; //Ultimo bloque del disco
-            
-            if (actual != limiteDisco) {
-                desplazamiento += Math.abs(limiteDisco - actual);
-                actual = limiteDisco;
-            }
-
-            //Leer la lista menores de atrás para adelantez
-            for (int i = menores.getTamano() - 1; i >= 0; i--) {
-                int bloque = (int) menores.obtener(i);
+        if (haciaArriba) {
+            // Sube atendiendo los mayores
+            for (int i = 0; i < mayores.getTamano(); i++) {
+                int bloque = mayores.obtener(i);
                 secuencia.insertar(bloque);
                 desplazamiento += Math.abs(bloque - actual);
                 actual = bloque;
             }
-        }
-
-        return new Resultado(secuencia, desplazamiento);
-    }
-    
-    //Circular SCAN
-    public Resultado ejecutarCSCAN(ListaEnlazada solicitudes) {
-        ListaEnlazada secuencia = new ListaEnlazada();
-        int desplazamiento = 0;
-        int actual = this.posicionCabezal;
-        int n = solicitudes.getTamano();
-
-        if (n == 0) return new Resultado(secuencia, 0);
-        int[] arr = new int[n];
-        for (int i = 0; i < n; i++) {
-            arr[i] = (int) solicitudes.obtener(i);
-        }
-
-        for (int i = 0; i < n - 1; i++) {
-            for (int j = 0; j < n - i - 1; j++) {
-                if (arr[j] > arr[j + 1]) {
-                    int temp = arr[j];
-                    arr[j] = arr[j + 1];
-                    arr[j + 1] = temp;
-                }
+            // Al llegar al tope (o al último mayor), baja por los menores (en orden descendente)
+            for (int i = menores.getTamano() - 1; i >= 0; i--) {
+                int bloque = menores.obtener(i);
+                secuencia.insertar(bloque);
+                desplazamiento += Math.abs(bloque - actual);
+                actual = bloque;
             }
-        }
-
-        //Separar en grupos
-        ListaEnlazada mayores = new ListaEnlazada();
-        ListaEnlazada menores = new ListaEnlazada();
-        for (int i = 0; i < n; i++) {
-            if (arr[i] >= actual) {
-                mayores.insertar(arr[i]);
-            } else {
-                menores.insertar(arr[i]);
+        } else {
+            // Lógica inversa si empezara bajando...
+            for (int i = menores.getTamano() - 1; i >= 0; i--) {
+                int bloque = menores.obtener(i);
+                secuencia.insertar(bloque);
+                desplazamiento += Math.abs(bloque - actual);
+                actual = bloque;
             }
-        }
-
-        //Recorrer para arriba
-        for (int i = 0; i < mayores.getTamano(); i++) {
-            int bloque = (int) mayores.obtener(i);
-            secuencia.insertar(bloque);
-            desplazamiento += Math.abs(bloque - actual);
-            actual = bloque;
-        }
-
-        //Menores? dar salto circular al bloque 0
-        if (!menores.estaVacia()) {
-            int limiteDisco = this.tamanoDisco - 1;
-            
-            if (actual != limiteDisco) {
-                desplazamiento += Math.abs(limiteDisco - actual);
-            }
-            
-            actual = 0; 
-            desplazamiento += limiteDisco; 
-            
-            for (int i = 0; i < menores.getTamano(); i++) {
-                int bloque = (int) menores.obtener(i);
+            for (int i = 0; i < mayores.getTamano(); i++) {
+                int bloque = mayores.obtener(i);
                 secuencia.insertar(bloque);
                 desplazamiento += Math.abs(bloque - actual);
                 actual = bloque;

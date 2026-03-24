@@ -1,7 +1,3 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package edu.unimetproyecto2.controlador;
 
 import edu.unimetproyecto2.modelo.Archivo;
@@ -11,7 +7,6 @@ import edu.unimetproyecto2.modelo.Entrada;
 import java.awt.Color;
 
 /**
- *
  * @author pinto
  */
 public class GestorAlmacenamiento {
@@ -24,262 +19,183 @@ public class GestorAlmacenamiento {
 
     public GestorAlmacenamiento(int tamanoDisco) {
         this.disco = new DiscoVirtual(tamanoDisco);
-        // La raíz siempre le pertenece al Admin y no tiene padre (null)
         this.raiz = new Directorio("Raiz", "Administrador", null); 
         this.directorioActual = this.raiz;
-        this.usuarioActual = "Administrador"; //Admin por defecto
+        this.usuarioActual = "Administrador"; 
         this.journal = new ManejadorJournaling();
         this.simularFallo = false;
     }
-    
-    
-    //Usuarios
+
+    // --- MÉTODOS DE CONFIGURACIÓN Y ACCESO ---
+
+    public String configurarNuevoDisco(int nuevoTamano) {
+        if (!usuarioActual.equals("Administrador")) {
+            return "ERROR: Solo el Administrador puede reconfigurar el hardware.";
+        }
+        this.disco = new DiscoVirtual(nuevoTamano);
+        this.raiz = new Directorio("Raiz", "Administrador", null);
+        this.directorioActual = this.raiz;
+        return "ÉXITO: Disco reconfigurado a " + nuevoTamano + " bloques. Sistema reiniciado.";
+    }
+
     public void cambiarUsuario(String nuevoUsuario) {
         this.usuarioActual = nuevoUsuario;
     }
 
-    //Validador de permisos
     public boolean tienePermiso(String operacion) {
         if (this.usuarioActual.equals("Administrador")) {
             return true;
         }
         return operacion.equals("LEER");
     }
-    
-    public String exportarEstadoJSON(String rutaDestino) {
-        return ManejadorJSON.exportarSistema(this.raiz, rutaDestino);
-    }
 
-    //CRUD
-    public String crearDirectorio(String nombre) {
-        if (!tienePermiso("CREAR")) {
-            return "ERROR: Acceso denegado. Solo el Administrador puede crear directorios.";
-        }
-        Directorio nuevoDir = new Directorio(nombre, this.usuarioActual, this.directorioActual);
-        this.directorioActual.agregarHijo(nuevoDir);
-        return "Directorio '" + nombre + "' creado con éxito.";
-    }
-    
-    //Logica CRUD
+    // --- OPERACIONES DE ARCHIVOS Y DIRECTORIOS ---
+
     public String crearArchivo(String nombre, int tamanoBloques, Color color) {
         if (!tienePermiso("CREAR")) 
-            return "ERROR: Acceso denegado. Solo el Administrador puede crear archivos.";
+            return "ERROR: Acceso denegado. Modo Usuario solo permite LEER.";
         
-        //Anotar en el journal
-        RegistroJournaling tx = this.journal.registrar("CREAR_ARCHIVO", nombre);
-        //Creamos el archivo y le pedimos al disco que intente guardarlo
+        RegistroJournaling tx = this.journal.registrar("CREAR_ARCHIVO", nombre, tamanoBloques);
+        
         Archivo nuevoArchivo = new Archivo(nombre, this.usuarioActual, tamanoBloques, -1, color, this.directorioActual);
         boolean guardadoExitoso = this.disco.asignarArchivo(nuevoArchivo);
         
         if (guardadoExitoso) {
             this.directorioActual.agregarHijo(nuevoArchivo);
+            
             if (this.simularFallo) {
-                //El método termina, la transacción queda PENDIENTE
-                return "FALLO DEL SISTEMA: La creación de '" + nombre + "' se interrumpió y quedó pendiente.";
+                return "CRASH: El sistema falló. '" + nombre + "' quedó PENDIENTE en el Journal.";
             }
+            
             tx.confirmar();
-            return "Archivo '" + nombre + "' guardado correctamente.";
+            this.journal.actualizarArchivo();
+            return "Archivo '" + nombre + "' creado (" + tamanoBloques + " bloques).";
         } else {
-            return "ERROR: No hay espacio suficiente en el disco para " + tamanoBloques + " bloques.";
+            return "ERROR: No hay espacio para " + tamanoBloques + " bloques.";
         }
     }
-    
-    public String leerArchivo(Entrada entrada) {
-        if (entrada.isEsDirectorio()) { //No se lee la carpeta
-            return "ERROR:\n '" + entrada.getNombre() + "' es un directorio. Usa la navegación para entrar.";
-        }
+
+    /**
+     * MÉTODO CORREGIDO: Soluciona el error 'Cannot find symbol' en PlanificadorProcesos
+     */
+    public String modificarNombre(Entrada objetivo, String nuevoNombre) {
+        if (objetivo == null) return "ERROR: No se seleccionó ningún archivo o carpeta.";
         
-        if (!tienePermiso("LEER")) {
-            return "ERROR: Acceso denegado. No tienes permiso para leer.";
+        if (!tienePermiso("MODIFICAR")) {
+            return "ERROR: Permiso denegado. Solo Admin puede renombrar.";
         }
 
-        Archivo archivo = (Archivo) entrada;
-        return "LEYENDO ARCHIVO \n" +
-               "Nombre: " + archivo.getNombre() + "\n" +
-               "Dueño: " + archivo.getDueno() + "\n" +
-               "Tamaño: " + archivo.getTamanoBloques() + " bloques en el disco.\n" +
-               "Lectura exitosa.";
+        String nombreViejo = objetivo.getNombre();
+        objetivo.setNombre(nuevoNombre);
+        
+        return "ÉXITO: Se renombró '" + nombreViejo + "' a '" + nuevoNombre + "'.";
     }
-    
-    public String modificarNombre(Entrada entrada, String nuevoNombre) {
-        if (!tienePermiso("MODIFICAR")) {
-            return "ERROR:\n Permiso denegado. Solo el Administrador puede modificar.";
-        }
-        String nombreViejo = entrada.getNombre();
-        entrada.setNombre(nuevoNombre);
-        return "Éxito: '" + nombreViejo + "' ha sido renombrado a '" + nuevoNombre + "'.";
-    }
-    
+
     public String eliminarEntrada(Entrada entrada) {
-        if (entrada == raiz) {
-            return "ERROR:\n Sistema protegido. No puedes eliminar la carpeta Raíz.";
-        }
+        if (entrada == null) return "ERROR: Entrada nula.";
+        if (entrada == raiz) return "ERROR: No se puede eliminar la Raiz.";
+        
         if (!tienePermiso("ELIMINAR")) {
-            return "ERROR:\n Permiso denegado. Solo el Administrador puede eliminar archivos o directorios.";
+            return "ERROR: Permiso denegado. Solo Admin puede eliminar.";
         }
         
         String nombreObjeto = entrada.getNombre();
-        String tipoOperacion = entrada.isEsDirectorio() ? "ELIMINAR_DIRECTORIO" : "ELIMINAR_ARCHIVO";
+        RegistroJournaling tx = this.journal.registrar("ELIMINAR", nombreObjeto, 0);
 
-        // 1. ANOTAR EN EL JOURNAL
-        RegistroJournaling tx = this.journal.registrar(tipoOperacion, nombreObjeto);
-
-        // Si es archivo se liberan sus bloquees en el disco
         if (!entrada.isEsDirectorio()) {
             disco.liberarArchivo((Archivo) entrada);
         } else {
-            // Si es directorio se borra todo su contenido primero 
             vaciarDirectorio((Directorio) entrada);
         }
 
-        //Desconectar de la carpeta padre
         Directorio padre = (Directorio) entrada.getPadre();
         if (padre != null) {
             padre.removerHijo(entrada);
         }
+
         if (this.simularFallo) {
-            return "FALLO SIMULADO: La eliminación de '" + nombreObjeto + "' provocó un crash y quedó PENDIENTE.";
+            return "CRASH: Fallo durante eliminación. '" + nombreObjeto + "' quedó PENDIENTE.";
         }
 
         tx.confirmar();
-        return "Éxito: '" + nombreObjeto + "' eliminado del sistema y bloques liberados.";
+        this.journal.actualizarArchivo();
+        return "Éxito: '" + nombreObjeto + "' eliminado y bloques liberados.";
     }
-    
-    //Para borrar todo lo interno a la carpeta y libera los bloques
+
+    public String leerArchivo(Entrada entrada) {
+        if (entrada == null) return "ERROR: No hay archivo seleccionado.";
+        if (entrada.isEsDirectorio()) return "ERROR: Es un directorio.";
+        
+        Archivo archivo = (Archivo) entrada;
+        return "CONTENIDO DE " + archivo.getNombre() + ":\nPropietario: " + archivo.getDueno() + "\nBloques: " + archivo.getTamanoBloques();
+    }
+
+    public String crearDirectorio(String nombre) {
+        if (!tienePermiso("CREAR")) return "ERROR: Solo Admin crea carpetas.";
+        Directorio nuevoDir = new Directorio(nombre, this.usuarioActual, this.directorioActual);
+        this.directorioActual.agregarHijo(nuevoDir);
+        return "Carpeta '" + nombre + "' creada.";
+    }
+
+    // --- NAVEGACIÓN Y AUXILIARES ---
+
     private void vaciarDirectorio(Directorio dir) {
         while (!dir.getHijos().estaVacia()) {
             Entrada hijo = dir.getHijos().obtener(0);
-            
             if (!hijo.isEsDirectorio()) {
                 disco.liberarArchivo((Archivo) hijo);
             } else {
-                vaciarDirectorio((Directorio) hijo); //Llamada recursiva
+                vaciarDirectorio((Directorio) hijo);
             }
             dir.removerHijo(hijo);
         }
     }
-    
-    //CD
-    //Entrar a una carpeta
+
     public String entrarDirectorio(String nombreCarpeta) { 
-        int cantidadHijos = directorioActual.getHijos().getTamano(); 
-        for (int i = 0; i < cantidadHijos; i++) {
+        for (int i = 0; i < directorioActual.getHijos().getTamano(); i++) {
             Entrada hijo = directorioActual.getHijos().obtener(i);
-            
-            if (hijo.getNombre().equals(nombreCarpeta)) { //Buscar si es carpeta
-                if (hijo.isEsDirectorio()) {
-                    this.directorioActual = (Directorio) hijo; 
-                    return "Éxito: Entraste a la carpeta '" + nombreCarpeta + "'.";
-                } else {
-                    return "ERROR: '" + nombreCarpeta + "' es un archivo, no puedes entrar en él.";
-                }
+            if (hijo.getNombre().equals(nombreCarpeta) && hijo.isEsDirectorio()) {
+                this.directorioActual = (Directorio) hijo; 
+                return "Navegando en: " + nombreCarpeta;
             }
         }
-        return "ERROR: La carpeta '" + nombreCarpeta + "' no existe en este directorio.";
+        return "ERROR: Directorio no encontrado.";
     }
-    
-    //Salir de una carpeta
+
     public String subirDirectorio() {
-        if (this.directorioActual == this.raiz) {
-            return "ERROR: Ya estás en la Raíz. No puedes retroceder más.";
-        }
-        
-        //Ir a la carpeta padre
+        if (this.directorioActual == this.raiz) return "Ya estás en Raiz.";
         this.directorioActual = (Directorio) this.directorioActual.getPadre();
-        return "Éxito: Regresaste a la carpeta '" + this.directorioActual.getNombre() + "'.";
+        return "Subiendo a: " + this.directorioActual.getNombre();
     }
-    
+
+    // --- LÓGICA DE RECUPERACIÓN ---
+
     public String recuperarSistema() {
-        //Ver lista de todo lo que se da;o
         edu.unimetproyecto2.estructuras.ListaEnlazada pendientes = journal.obtenerPendientes();
-        
-        if (pendientes.estaVacia()) {
-            return "El sistema está estable. No hay operaciones pendientes en el Journal.";
-        }
+        if (pendientes.estaVacia()) return "Sistema limpio.";
 
-        int cantidadFallos = pendientes.getTamano();
-        
-        for (int i = 0; i < cantidadFallos; i++) {
+        int fallos = pendientes.getTamano();
+        for (int i = 0; i < fallos; i++) {
             RegistroJournaling tx = (RegistroJournaling) pendientes.obtener(i);
-
-            //Buscar y borrar el archivo o directorio si fallo en el proceo
-            if (tx.getOperacion().equals("CREAR_ARCHIVO") || tx.getOperacion().equals("CREAR_DIRECTORIO")) {
-                
-                // Buscamos si el archivo se llegó a crear a medias en la carpeta actual
-                for (int j = 0; j < directorioActual.getHijos().getTamano(); j++) {
-                    Entrada hijo = directorioActual.getHijos().obtener(j);
-                    if (hijo.getNombre().equals(tx.getNombreEntrada())) {
-                        // Lo borramos físicamente para deshacer el error
-                        if (!hijo.isEsDirectorio()) {
-                            disco.liberarArchivo((Archivo) hijo);
-                        }
-                        directorioActual.removerHijo(hijo);
-                        break; // Salimos del for de búsqueda
-                    }
+            for (int j = 0; j < directorioActual.getHijos().getTamano(); j++) {
+                Entrada hijo = directorioActual.getHijos().obtener(j);
+                if (hijo.getNombre().equals(tx.getNombreEntrada())) {
+                    if (!hijo.isEsDirectorio()) disco.liberarArchivo((Archivo) hijo);
+                    directorioActual.removerHijo(hijo);
+                    break;
                 }
             }
-            // Marcamos la transacción como resuelta para que no vuelva a molestar
             tx.confirmar(); 
         }
-
-        return "Recuperación completada (Rollback). Se deshicieron " + cantidadFallos + " operaciones corruptas.";
-    }
-    
-    public String importarEstadoJSON(String rutaOrigen) {
-        // Vaciar el disco actual creando uno nuevo para cargar los datos limpios
-        int tamanoAnterior = this.disco.getTamanoTotal();
-        this.disco = new DiscoVirtual(tamanoAnterior); 
-        
-        Directorio raizCargada = ManejadorJSON.importarSistema(rutaOrigen, this.disco);
-        
-        if (raizCargada != null) {
-            this.raiz = raizCargada;
-            this.directorioActual = this.raiz; 
-            this.journal = new ManejadorJournaling(); //Resetear el log de fallos
-            return "Sistema cargado desde: " + rutaOrigen;
-        } else {
-            return "ERROR: El archivo JSON está corrupto o no existe.";
-        }
+        journal.actualizarArchivo();
+        return "Recuperación exitosa: " + fallos + " transacciones limpiadas.";
     }
 
-    //Getters y setters
-    public DiscoVirtual getDisco() { 
-        return disco; 
-    }
-    
-    public Directorio getRaiz() { 
-        return raiz; 
-    }
-    
-    public Directorio getDirectorioActual() { 
-        return directorioActual; 
-    }
-    
-    public String getUsuarioActual() { 
-        return usuarioActual; 
-    }
-
-    public void setDisco(DiscoVirtual disco) {
-        this.disco = disco;
-    }
-
-    public void setRaiz(Directorio raiz) {
-        this.raiz = raiz;
-    }
-
-    public void setDirectorioActual(Directorio directorioActual) {
-        this.directorioActual = directorioActual;
-    }
-
-    public void setUsuarioActual(String usuarioActual) {
-        this.usuarioActual = usuarioActual;
-    }
-    
-    public ManejadorJournaling getJournal() {
-        return this.journal;
-    }
-
-    public void setSimularFallo(boolean simularFallo) {
-        this.simularFallo = simularFallo;
-    }
+    // Getters
+    public DiscoVirtual getDisco() { return disco; }
+    public Directorio getRaiz() { return raiz; }
+    public Directorio getDirectorioActual() { return directorioActual; }
+    public String getUsuarioActual() { return usuarioActual; }
+    public ManejadorJournaling getJournal() { return journal; }
+    public void setSimularFallo(boolean simularFallo) { this.simularFallo = simularFallo; }
 }
