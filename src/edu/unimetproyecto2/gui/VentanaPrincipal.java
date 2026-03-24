@@ -1,154 +1,172 @@
 package edu.unimetproyecto2.gui;
 
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/GUIForms/JFrame.java to edit this template
- */
-
-import edu.unimetproyecto2.modelo.DiscoVirtual;
-import javax.swing.JLabel;
+import edu.unimetproyecto2.controlador.*;
+import edu.unimetproyecto2.modelo.*;
+import javax.swing.*;
+import javax.swing.table.DefaultTableModel;
 import javax.swing.tree.DefaultMutableTreeNode;
 import javax.swing.tree.DefaultTreeModel;
-import edu.unimetproyecto2.modelo.Directorio;
-import edu.unimetproyecto2.modelo.Archivo;
-import edu.unimetproyecto2.modelo.Entrada;
-import javax.swing.table.DefaultTableModel;
+import java.awt.Color;
 
 /**
- *
  * @author jesus alejandro
+ * 
  */
 public class VentanaPrincipal extends javax.swing.JFrame {
     
-    private static final java.util.logging.Logger logger = java.util.logging.Logger.getLogger(VentanaPrincipal.class.getName());
-
-    // Atributos de la lógica (Fase 1)
     private DiscoVirtual disco; 
-    private JLabel[] visualBloques; // Un arreglo para guardar los cuadritos y poder cambiarlos luego
-    
-    // Atributos del Árbol
-    private Directorio rootLogico;       // La carpeta raíz real (Lógica)
-    private DefaultTreeModel modeloArbol; // El motor que dibuja el árbol (Visual)
-    
+    private JLabel[] visualBloques; 
+    private Directorio rootLogico;       
+    private DefaultTreeModel modeloArbol; 
     private DefaultTableModel modeloTablaArchivos;
+    private GestorAlmacenamiento gestor;
+    private PlanificadorProcesos planificadorProcesos;
+    private Simulador hiloSimulador;
+    
+    private int bloqueCabezalActual = 0; 
+    private java.awt.Color colorCabezal = java.awt.Color.YELLOW; 
+    private boolean isAdmin = true; // Variable para el control de modo
 
     public VentanaPrincipal() {
-        initComponents(); // ¡No borrar esto!
+        initComponents(); 
         
-        // Inicializamos nuestro disco de la Fase 1 (ejemplo: 100 bloques)
-        disco = new DiscoVirtual(100); 
+        // 1. Iniciamos la LÓGICA
+        gestor = new GestorAlmacenamiento(100); 
+        this.disco = gestor.getDisco(); 
+        this.rootLogico = gestor.getRaiz(); 
+
+        // 2. Inicializamos lo VISUAL
         visualBloques = new JLabel[100];
-        
-        // Llamamos al método que dibujará todo
         inicializarPanelDisco();
-        
-        
-        // 1. Creamos la carpeta Raíz de la Fase 1
-        rootLogico = new Directorio("Root", "Admin", null);
 
-        // 2. Creamos el "Nodo Visual" que el JTree entiende
-        DefaultMutableTreeNode nodoRaizVisual = new DefaultMutableTreeNode(rootLogico.getNombre());
-
-        // 3. Creamos el modelo usando ese nodo
-        modeloArbol = new DefaultTreeModel(nodoRaizVisual);
-
-        // 4. Le decimos al componente JTree que use este modelo
-        treeArchivos.setModel(modeloArbol);
-        
-        // Opcional: Prueba rápida para ver si funciona
-        Archivo prueba = new Archivo("HolaMundo.txt", "Admin", 1, 0, java.awt.Color.BLUE, rootLogico);
-        rootLogico.getHijos().insertar(prueba); // Usamos tu lista enlazada
-        
-        actualizarArbol(); // Método que haremos ahora
-        
-        
-        // 1. Obtenemos el modelo que ya creamos en el diseño de NetBeans
+        // 3. Configuramos componentes Swing
+        modeloArbol = (DefaultTreeModel) treeArchivos.getModel();
         modeloTablaArchivos = (DefaultTableModel) tablaArchivos.getModel();
-        
-        // 2. Limpiamos cualquier fila de ejemplo que haya puesto NetBeans
         modeloTablaArchivos.setRowCount(0);
-    }
-    
-    private void inicializarPanelDisco() {
-        // 1. Limpiar el panel por si acaso
-        panelDisco.removeAll(); 
 
-        // 2. Usar un bucle para crear cada bloque visual
-        for (int i = 0; i < disco.getTamanoTotal(); i++) {
-            // Creamos un JLabel que servirá como "cuadrito"
-            JLabel cuadro = new JLabel(String.valueOf(i), javax.swing.SwingConstants.CENTER);
-
-            // Configuración visual del cuadrito
-            cuadro.setOpaque(true); // Necesario para que se vea el color de fondo
-            cuadro.setBackground(java.awt.Color.WHITE); // Blanco = Libre
-            cuadro.setBorder(javax.swing.BorderFactory.createLineBorder(java.awt.Color.GRAY));
-            cuadro.setFont(new java.awt.Font("Segoe UI", 0, 9)); // Letra pequeña para el número
-
-            // Guardamos la referencia en nuestro arreglo para usarla después
-            visualBloques[i] = cuadro;
-
-            // 3. Añadir el cuadrito al panel que dibujamos en la interfaz
-            panelDisco.add(cuadro);
+        // 4. Iniciamos el SIMULADOR
+        planificadorProcesos = new PlanificadorProcesos(gestor);
+        hiloSimulador = new Simulador(this, planificadorProcesos);
+        hiloSimulador.start();
+        
+        // 5. RECUPERACIÓN AUTOMÁTICA
+        ManejadorJournaling recoveryJournal = new ManejadorJournaling();
+        if (recoveryJournal.obtenerPendientes().getTamano() > 0) {
+            escribirLog("> [SISTEMA] Se detectaron fallos. Ejecutando Rollback...");
+            escribirLog(gestor.recuperarSistema());
         }
 
-        // 4. Refrescar la interfaz para que aparezcan
+        actualizarTodoVisual();
+    }
+    
+    // --- MÉTODOS DE APOYO ---
+
+    private void inicializarPanelDisco() {
+        panelDisco.removeAll(); 
+        int total = disco.getTamanoTotal();
+
+        // CÁLCULO DINÁMICO: Crea una cuadrícula lo más cuadrada posible
+        int lado = (int) Math.sqrt(total);
+        if (lado * lado < total) lado++;
+
+        // Seteamos el layout con el nuevo número de filas y columnas
+        panelDisco.setLayout(new java.awt.GridLayout(lado, lado, 2, 2));
+
+        for (int i = 0; i < total; i++) {
+            JLabel cuadro = new JLabel(String.valueOf(i), SwingConstants.CENTER);
+            cuadro.setOpaque(true);
+            cuadro.setBackground(Color.WHITE);
+            cuadro.setBorder(BorderFactory.createLineBorder(Color.GRAY));
+            cuadro.setFont(new java.awt.Font("Segoe UI", 0, 9));
+            visualBloques[i] = cuadro;
+            panelDisco.add(cuadro);
+        }
         panelDisco.revalidate();
         panelDisco.repaint();
     }
-    
+
+    public void actualizarCabezalVisual(int destino) {
+        if (destino < 0 || destino >= visualBloques.length) return;
+        Bloque bAnterior = disco.getBloque(bloqueCabezalActual);
+        visualBloques[bloqueCabezalActual].setBackground(bAnterior.isOcupado() ? bAnterior.getColorArchivo() : Color.WHITE);
+        
+        bloqueCabezalActual = destino;
+        visualBloques[destino].setBackground(colorCabezal);
+        visualBloques[destino].setBorder(BorderFactory.createLineBorder(Color.BLACK, 2));
+    }
+
+    public void actualizarTodoVisual() {
+        this.rootLogico = gestor.getRaiz(); 
+        actualizarArbol(); 
+        actualizarTabla(); 
+        actualizarTablaProcesos();
+
+        for (int i = 0; i < disco.getTamanoTotal(); i++) {
+            Bloque bLogico = disco.getBloque(i);
+            if (i == bloqueCabezalActual) continue;
+            visualBloques[i].setBackground(bLogico.isOcupado() ? bLogico.getColorArchivo() : Color.WHITE);
+        }
+    }
+
     private void actualizarArbol() {
-        // Creamos el nodo raíz visual de nuevo para refrescar todo
         DefaultMutableTreeNode visualRoot = new DefaultMutableTreeNode(rootLogico.getNombre());
-        
-        // Llamamos a una función que recorra los hijos
         llenarNodos(visualRoot, rootLogico);
-        
-        // Le pasamos el nuevo diseño al modelo
         modeloArbol.setRoot(visualRoot);
-        modeloArbol.reload(); // Obliga al JTree a redibujarse
     }
 
     private void llenarNodos(DefaultMutableTreeNode nodoVisual, Directorio directorioLogico) {
-        // Recorremos la ListaEnlazada de hijos
         for (int i = 0; i < directorioLogico.getHijos().getTamano(); i++) {
             Entrada hijo = directorioLogico.getHijos().obtener(i);
-            
-            // Creamos el nodo para este hijo
             DefaultMutableTreeNode nuevoNodoVisual = new DefaultMutableTreeNode(hijo.getNombre());
             nodoVisual.add(nuevoNodoVisual);
-            
-            // Si ese hijo es una carpeta, tenemos que entrar y ver qué tiene dentro
-            if (hijo.isEsDirectorio()) {
-                llenarNodos(nuevoNodoVisual, (Directorio) hijo);
-            }
+            if (hijo.isEsDirectorio()) llenarNodos(nuevoNodoVisual, (Directorio) hijo);
         }
     }
-    
+
     private void actualizarTabla() {
-        // 1. Limpiamos la tabla para no duplicar datos
         modeloTablaArchivos.setRowCount(0);
+        recorrerArchivosParaTabla(gestor.getRaiz());
+    }
 
-        // 2. Recorremos los hijos del root (Fase 1)
-        for (int i = 0; i < rootLogico.getHijos().getTamano(); i++) {
-            edu.unimetproyecto2.modelo.Entrada entrada = rootLogico.getHijos().obtener(i);
-
-            // Solo nos interesan los ARCHIVOS para esta tabla
-            if (!entrada.isEsDirectorio()) {
-                edu.unimetproyecto2.modelo.Archivo arc = (edu.unimetproyecto2.modelo.Archivo) entrada;
-
-                // 3. Creamos la fila con los datos del archivo
-                Object[] fila = new Object[4];
-                fila[0] = arc.getNombre();
-                fila[1] = arc.getTamanoBloques();
-                fila[2] = arc.getBloqueInicial();
-                fila[3] = "■"; // Un cuadrito para representar el color
-
-                // 4. Agregamos la fila al modelo
-                modeloTablaArchivos.addRow(fila);
+    private void recorrerArchivosParaTabla(Directorio dir) {
+        for (int i = 0; i < dir.getHijos().getTamano(); i++) {
+            Entrada e = dir.getHijos().obtener(i);
+            if (!e.isEsDirectorio()) {
+                Archivo arc = (Archivo) e;
+                modeloTablaArchivos.addRow(new Object[]{arc.getNombre(), arc.getTamanoBloques(), arc.getBloqueInicial(), "■"});
+            } else {
+                recorrerArchivosParaTabla((Directorio) e);
             }
         }
     }
 
+    public void actualizarTablaProcesos() {
+        DefaultTableModel modelo = (DefaultTableModel) tablaProcesos.getModel();
+        modelo.setRowCount(0);
+        for (int i = 0; i < planificadorProcesos.getCantidadProcesos(); i++) {
+            PCB p = planificadorProcesos.getColaListos().obtener(i);
+            if (p != null) {
+                modelo.addRow(new Object[]{p.getPid(), p.getOperacion(), p.getEstado(), "Bloque..."});
+            }
+        }
+    }
+
+    private Entrada buscarEnDirectorio(Directorio dir, String nombre) {
+        for (int i = 0; i < dir.getHijos().getTamano(); i++) {
+            Entrada e = dir.getHijos().obtener(i);
+            if (e.getNombre().equals(nombre)) return e;
+            if (e.isEsDirectorio()) {
+                Entrada encontrada = buscarEnDirectorio((Directorio) e, nombre);
+                if (encontrada != null) return encontrada;
+            }
+        }
+        return null;
+    }
+
+    public void escribirLog(String texto) {
+        txtLog.append(texto + "\n");
+        txtLog.setCaretPosition(txtLog.getDocument().getLength());
+    }
     /**
      * This method is called from within the constructor to initialize the form.
      * WARNING: Do NOT modify this code. The content of this method is always
@@ -235,15 +253,19 @@ public class VentanaPrincipal extends javax.swing.JFrame {
         jPanel3.add(btnCrear);
 
         btnEliminar.setText("Eliminar");
+        btnEliminar.addActionListener(this::btnEliminarActionPerformed);
         jPanel3.add(btnEliminar);
 
         btnFallo.setText("Simular Fallo");
+        btnFallo.addActionListener(this::btnFalloActionPerformed);
         jPanel3.add(btnFallo);
 
         btnModo.setText("Cambiar Modo (Admin/User)");
+        btnModo.addActionListener(this::btnModoActionPerformed);
         jPanel3.add(btnModo);
 
         btnConfig.setText("Configurar Disco");
+        btnConfig.addActionListener(this::btnConfigActionPerformed);
         jPanel3.add(btnConfig);
 
         jPanel2.add(jPanel3, java.awt.BorderLayout.NORTH);
@@ -262,88 +284,109 @@ public class VentanaPrincipal extends javax.swing.JFrame {
     }// </editor-fold>//GEN-END:initComponents
 
     private void btnCrearActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnCrearActionPerformed
-        try {
-            // 1. Pedir datos al usuario (Ventanas simples)
-            String nombre = javax.swing.JOptionPane.showInputDialog(this, "Nombre del archivo:");
-            String tamStr = javax.swing.JOptionPane.showInputDialog(this, "Tamaño (en bloques):");
+try {
+            String nombre = JOptionPane.showInputDialog(this, "Nombre del Archivo:");
+            if (nombre == null || nombre.isEmpty()) return;
+            
+            String strTamano = JOptionPane.showInputDialog(this, "Cantidad de bloques:");
+            if (strTamano == null) return;
+            int tamano = Integer.parseInt(strTamano);
 
-            if (nombre == null || tamStr == null) return; // Si cancela, no hacemos nada
-            int tamano = Integer.parseInt(tamStr);
+            int bloqueDestino = gestor.getDisco().buscarBloqueLibre(); 
+            if (bloqueDestino == -1) {
+                escribirLog("ERROR: Disco lleno.");
+                return;
+            }
 
-            // 2. Buscar y asignar bloques (Asignación Encadenada)
-            int bloqueAnterior = -1;
-            int primerBloque = -1;
-            java.awt.Color colorAzar = new java.awt.Color((int)(Math.random() * 0x1000000));
+            // Creamos el proceso para el planificador
+            PCB nuevoProceso = new PCB(gestor.getUsuarioActual(), "CREAR_ARCHIVO", null);
+            Object[] params = { nombre, tamano, Color.CYAN, bloqueDestino };
+            nuevoProceso.setParametros(params);
 
-            // Verificamos si hay espacio suficiente antes de empezar
-            // (Podrías hacer un método en DiscoVirtual para contar libres)
+            planificadorProcesos.recibirProceso(nuevoProceso);
+            actualizarTablaProcesos();
+            escribirLog("> [USER] Solicitud de creación: " + nombre);
+        } catch (Exception e) {
+            escribirLog("ERROR: Datos de creación inválidos.");
+        }
+    }//GEN-LAST:event_btnCrearActionPerformed
 
-            for (int i = 0; i < tamano; i++) {
-                int libre = disco.buscarBloqueLibre();
-                if (libre == -1) {
-                    txtLog.append("Error: No hay suficiente espacio en disco.\n");
+    private void btnFalloActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnFalloActionPerformed
+        escribirLog("!!! CRITICAL FAILURE SIMULATED !!!");
+                // Simulamos corrupción en un bloque aleatorio antes de cerrar
+                int blockFallo = (int)(Math.random() * disco.getTamanoTotal());
+                disco.getBloque(blockFallo).setOcupado(true); 
+
+                if (hiloSimulador != null) {
+                    hiloSimulador.detenerInmediatamente(); 
+                }
+                JOptionPane.showMessageDialog(this, "Fallo crítico en bloque " + blockFallo + ". El sistema se cerrará.");
+                System.exit(0); 
+    }//GEN-LAST:event_btnFalloActionPerformed
+
+    private void btnEliminarActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnEliminarActionPerformed
+        DefaultMutableTreeNode selectedNode = (DefaultMutableTreeNode) treeArchivos.getLastSelectedPathComponent();
+                if (selectedNode == null || selectedNode.isRoot()) {
+                    escribirLog("ERROR: Selecciona un archivo válido.");
                     return;
                 }
 
-                // Ocupamos el bloque en la lógica
-                edu.unimetproyecto2.modelo.Bloque b = disco.getBloque(libre);
-                b.setOcupado(true);
-                b.setNombreArchivo(nombre);
-                b.setColorArchivo(colorAzar);
+                String nombreEliminar = selectedNode.toString();
+                Entrada objetivo = buscarEnDirectorio(gestor.getRaiz(), nombreEliminar);
 
-                // Encadenamiento
-                if (bloqueAnterior != -1) {
-                    disco.getBloque(bloqueAnterior).setSiguienteBloque(libre);
-                } else {
-                    primerBloque = libre; // Guardamos el inicio del archivo
+                if (objetivo != null) {
+                    PCB procesoDel = new PCB(gestor.getUsuarioActual(), "ELIMINAR", objetivo);
+                    Object[] params = { nombreEliminar, 0, Color.WHITE, 0 };
+                    procesoDel.setParametros(params);
+
+                    planificadorProcesos.recibirProceso(procesoDel);
+                    actualizarTablaProcesos();
+                    escribirLog("> [USER] Solicitud de eliminación: " + nombreEliminar);
                 }
-                bloqueAnterior = libre;
+    }//GEN-LAST:event_btnEliminarActionPerformed
 
-                // 3. Actualizar Visualmente el cuadrito en el panel central
-                visualBloques[libre].setBackground(colorAzar);
-                visualBloques[libre].setToolTipText("Archivo: " + nombre);
+    private void btnModoActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnModoActionPerformed
+        isAdmin = !isAdmin;
+                String nuevo = isAdmin ? "Administrador" : "Usuario";
+                gestor.cambiarUsuario(nuevo);
+
+                btnModo.setText("Modo: " + nuevo);
+                escribirLog("> [SISTEMA] Cambio de privilegios a: " + nuevo);
+
+                // Bloqueo de funciones según privilegio
+                btnConfig.setEnabled(isAdmin);
+                btnFallo.setEnabled(isAdmin);
+    }//GEN-LAST:event_btnModoActionPerformed
+
+    private void btnConfigActionPerformed(java.awt.event.ActionEvent evt) {//GEN-FIRST:event_btnConfigActionPerformed
+        String res = JOptionPane.showInputDialog(this, "Nuevo tamaño del disco (bloques):", "100");
+        if (res != null) {
+            try {
+                int nuevoTam = Integer.parseInt(res);
+
+                // 1. Aplicamos el cambio en la lógica del gestor
+                escribirLog(gestor.configurarNuevoDisco(nuevoTam));
+
+                // 2. IMPORTANTE: Actualizamos la referencia del disco y el tamaño del array visual
+                this.disco = gestor.getDisco();
+                this.visualBloques = new JLabel[nuevoTam]; 
+
+                // 3. Redibujamos el panel y refrescamos todo
+                inicializarPanelDisco();
+                actualizarTodoVisual();
+
+            } catch (NumberFormatException e) {
+                JOptionPane.showMessageDialog(this, "Por favor, ingresa un número válido.");
             }
-
-            // 4. Crear el objeto Archivo y añadirlo al sistema
-            edu.unimetproyecto2.modelo.Archivo nuevo = new edu.unimetproyecto2.modelo.Archivo(
-                    nombre, "Admin", tamano, primerBloque, colorAzar, rootLogico);
-
-            rootLogico.getHijos().insertar(nuevo);
-
-            // 5. Refrescar el JTree y el Log
-            actualizarArbol();
-            actualizarTabla();
-            txtLog.append("Archivo '" + nombre + "' creado con éxito (" + tamano + " bloques).\n");
-
-        } catch (NumberFormatException e) {
-            javax.swing.JOptionPane.showMessageDialog(this, "Error: El tamaño debe ser un número.");
-          }
-    }//GEN-LAST:event_btnCrearActionPerformed
+        }
+    }//GEN-LAST:event_btnConfigActionPerformed
 
     /**
      * @param args the command line arguments
      */
     public static void main(String args[]) {
-        /* Set the Nimbus look and feel */
-        //<editor-fold defaultstate="collapsed" desc=" Look and feel setting code (optional) ">
-        /* If Nimbus (introduced in Java SE 6) is not available, stay with the default look and feel.
-         * For details see http://download.oracle.com/javase/tutorial/uiswing/lookandfeel/plaf.html 
-         */
-        try {
-            for (javax.swing.UIManager.LookAndFeelInfo info : javax.swing.UIManager.getInstalledLookAndFeels()) {
-                if ("Nimbus".equals(info.getName())) {
-                    javax.swing.UIManager.setLookAndFeel(info.getClassName());
-                    break;
-                }
-            }
-        } catch (ReflectiveOperationException | javax.swing.UnsupportedLookAndFeelException ex) {
-            logger.log(java.util.logging.Level.SEVERE, null, ex);
-        }
-        //</editor-fold>
         java.awt.EventQueue.invokeLater(() -> {
-        VentanaPrincipal vista = new VentanaPrincipal();
-        vista.setVisible(true);
-        vista.setLocationRelativeTo(null); // Esto la centra en la pantalla
+            new VentanaPrincipal().setVisible(true);
         });
         /* Create and display the form */
     }

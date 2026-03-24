@@ -200,21 +200,33 @@
               <Properties>
                 <Property name="text" type="java.lang.String" value="Eliminar"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnEliminarActionPerformed"/>
+              </Events>
             </Component>
             <Component class="javax.swing.JButton" name="btnFallo">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Simular Fallo"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnFalloActionPerformed"/>
+              </Events>
             </Component>
             <Component class="javax.swing.JButton" name="btnModo">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Cambiar Modo (Admin/User)"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnModoActionPerformed"/>
+              </Events>
             </Component>
             <Component class="javax.swing.JButton" name="btnConfig">
               <Properties>
                 <Property name="text" type="java.lang.String" value="Configurar Disco"/>
               </Properties>
+              <Events>
+                <EventHandler event="actionPerformed" listener="java.awt.event.ActionListener" parameters="java.awt.event.ActionEvent" handler="btnConfigActionPerformed"/>
+              </Events>
             </Component>
           </SubComponents>
         </Container>

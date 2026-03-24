@@ -26,7 +26,8 @@ public class Bloque {
         this.colorArchivo = Color.WHITE; 
     }
 
-    // --- GETTERS (Para leer los datos) ---
+    
+    // Getters (Para leer los datos)
 
     public int getId() {
         return id;
@@ -48,7 +49,8 @@ public class Bloque {
         return colorArchivo;
     }
 
-    // --- SETTERS (Para modificar los datos) ---
+    
+    // Setters (Para modificar los datos)
 
     public void setOcupado(boolean ocupado) {
         this.ocupado = ocupado;

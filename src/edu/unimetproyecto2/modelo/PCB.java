@@ -1,30 +1,29 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package edu.unimetproyecto2.modelo;
 
 /**
- *
  * @author pinto
+ * 
  */
 public class PCB {
     private static int contadorPID = 1;
-    private int pid; //process id
-    private String usuario;
-    private String operacion; //CRUD
-    private Entrada objetivo; //el archivo o carpeta
-    private String estado;
-    private Object[] parametros; //Guardar nombres nuevos, tamaños, colores, etc
+    private int pid; // Process ID único
+    private String usuario; // Administrador o Usuario
+    private String operacion; // CREAR_ARCHIVO, ELIMINAR, LEER, etc.
+    private Entrada objetivo; // El archivo o carpeta si ya existe
+    private String estado; // LISTO, EJECUTANDO, TERMINADO, ERROR
+    private Object[] parametros; // [0]: Nombre, [1]: Tamaño, [2]: Color, [3]: BloqueInicial
     
+    // Constructor principal para procesos nuevos (como CREAR)
     public PCB(String usuario, String operacion, Entrada objetivo) {
         this.pid = contadorPID++;
         this.usuario = usuario;
         this.operacion = operacion;
         this.objetivo = objetivo;
-        this.parametros = parametros;
-        this.estado = "LISTO"; //Siempre inicia en listo.
+        this.parametros = new Object[4]; // Inicializamos el espacio para los 5 botones
+        this.estado = "LISTO"; 
     }
+
+    // --- GETTERS Y SETTERS ---
 
     public static int getContadorPID() {
         return contadorPID;
@@ -82,11 +81,10 @@ public class PCB {
         this.parametros = parametros;
     }
     
-    
-    
     @Override
     public String toString() {
-        return "PCB [PID=" + pid + ", Usuario=" + usuario + ", Op=" + operacion + ", Estado=" + estado + "]";
+        // Mejoramos el toString para que el Log de la VentanaPrincipal sea más claro
+        String detalle = (parametros != null && parametros.length > 0) ? (String) parametros[0] : "";
+        return "PID: " + pid + " | " + operacion + " | " + detalle + " | [" + estado + "]";
     }
-    
 }

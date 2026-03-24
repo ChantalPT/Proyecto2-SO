@@ -22,9 +22,23 @@ public abstract class Entrada {
     }
 
     // Getters y Setters básicos
-    public String getNombre() { return nombre; }
-    public void setNombre(String nombre) { this.nombre = nombre; }
-    public String getDueno() { return dueno; }
-    public boolean isEsDirectorio() { return esDirectorio; }
-    public Entrada getPadre() { return padre; }
+    public String getNombre() { 
+        return nombre; 
+    }
+    
+    public void setNombre(String nombre) { 
+        this.nombre = nombre; 
+    }
+    
+    public String getDueno() { 
+        return dueno; 
+    }
+    
+    public boolean isEsDirectorio() { 
+        return esDirectorio; 
+    }
+    
+    public Entrada getPadre() { 
+        return padre; 
+    }
 }

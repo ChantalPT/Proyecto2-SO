@@ -60,6 +60,27 @@ public class Cola<T> {
     return frente.getDato();
     }
     
+    public T obtener(int indice) {
+        if (estaVacia() || indice < 0 || indice >= tamano) {
+            return null;
+        }
+
+        // Empezamos desde el frente
+        Nodo<T> temporal = frente;
+        int contador = 0;
+
+        // Caminamos por los nodos hasta llegar a la posición deseada
+        while (temporal != null) {
+            if (contador == indice) {
+                return temporal.getDato();
+            }
+            temporal = temporal.getSiguiente();
+            contador++;
+        }
+
+        return null;
+    }
+    
     public int getTamano() {
         return tamano;
     }

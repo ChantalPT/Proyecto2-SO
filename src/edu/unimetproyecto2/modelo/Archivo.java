@@ -70,4 +70,8 @@ public class Archivo extends Entrada {
     public Color getColor() { 
         return color; 
     }
+    
+    public void setBloqueInicial(int bloqueInicial) {
+    this.bloqueInicial = bloqueInicial;
+}
 }

@@ -1,14 +1,10 @@
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package edu.unimetproyecto2.modelo;
 
 import java.awt.Color;
 
 /**
- *
  * @author jesus alejandro
+ * 
  */
 public class DiscoVirtual {
     private Bloque[] bloques;
@@ -24,7 +20,17 @@ public class DiscoVirtual {
         }
     }
     
-    //Cant. de bloques libres total
+    // --- BOTÓN: CONFIGURAR DISCO ---
+    // Este método permite al Gestor resetear el hardware
+    public void reconfigurar(int nuevoTamano) {
+        this.tamanoTotal = nuevoTamano;
+        this.bloques = new Bloque[nuevoTamano];
+        for (int i = 0; i < nuevoTamano; i++) {
+            bloques[i] = new Bloque(i);
+        }
+    }
+
+    // Cant. de bloques libres total
     public int getEspacioLibre() {
         int libres = 0;
         for (int i = 0; i < tamanoTotal; i++) {
@@ -43,46 +49,61 @@ public class DiscoVirtual {
         return -1; // Disco lleno
     }
     
+    // --- BOTÓN: CREAR ARCHIVO ---
     public boolean asignarArchivo(Archivo archivo) {
+        // Validación de espacio
         if (getEspacioLibre() < archivo.getTamanoBloques()) {
-            return false; // False pn no hay espacio suficiente en el disco
+            return false; 
         }
 
         int bloquesNecesarios = archivo.getTamanoBloques();
-        int bloqueAnterior = -1;
+        int bloqueAnteriorIdx = -1;
 
         for (int i = 0; i < bloquesNecesarios; i++) {
             int indiceLibre = buscarBloqueLibre();
+            
+            // Si es el primer bloque, se lo asignamos al archivo como su dirección de inicio
+            if (i == 0) {
+                archivo.setBloqueInicial(indiceLibre);
+            }
+
             Bloque b = bloques[indiceLibre];
             
-            //Llenar el bloque con los datos del archivo
+            // Marcamos el bloque como ocupado y le damos identidad
             b.setOcupado(true);
             b.setNombreArchivo(archivo.getNombre());
             b.setColorArchivo(archivo.getColor());
-            archivo.agregarBloque(indiceLibre); //Guardar en la lista interna del archivo
+            
+            // Guardamos el índice en la lista interna del archivo (Fase 1)
+            archivo.agregarBloque(indiceLibre); 
 
-            if (bloqueAnterior != -1) { //Se encadena al siguiente bloque
-                bloques[bloqueAnterior].setSiguienteBloque(indiceLibre);
+            // Creamos el enlace (Puntero) entre bloques
+            if (bloqueAnteriorIdx != -1) { 
+                bloques[bloqueAnteriorIdx].setSiguienteBloque(indiceLibre);
             }
 
-            bloqueAnterior = indiceLibre; 
+            bloqueAnteriorIdx = indiceLibre; 
         }
+        
+        // El último bloque de la cadena apunta a -1 (Fin de archivo)
+        if (bloqueAnteriorIdx != -1) {
+            bloques[bloqueAnteriorIdx].setSiguienteBloque(-1);
+        }
+        
         return true; 
     }
     
+    // --- BOTÓN: ELIMINAR ---
     public void liberarArchivo(Archivo archivo) {
-        //Buscar primer bloque desde la lista del archivo
-        if (archivo.getBloquesAsignados().estaVacia()) 
-            return;
+        // Obtenemos el inicio de la cadena de bloques
+        int indiceActual = archivo.getBloqueInicial(); 
         
-        int indiceActual = archivo.getBloquesAsignados().obtener(0); 
-        
-        // Recorremos la cadena de bloques en el disco y limpiarlos
-        while (indiceActual != -1) {
+        // Recorremos y limpiamos físicamente el disco
+        while (indiceActual != -1 && indiceActual < tamanoTotal) {
             Bloque b = bloques[indiceActual];
-            int siguiente = b.getSiguienteBloque(); //Guardar su apuntador
+            int siguiente = b.getSiguienteBloque(); // Guardamos a dónde iba antes de borrar
             
-            // Formatear el bloque
+            // Formatear el bloque (Reset)
             b.setOcupado(false);
             b.setNombreArchivo("LIBRE");
             b.setColorArchivo(Color.WHITE);
@@ -90,11 +111,21 @@ public class DiscoVirtual {
             
             indiceActual = siguiente; 
         }
+        
+        // Limpiamos la lista de índices del objeto archivo
+        archivo.getBloquesAsignados().vaciar();
     }
     
-    //Getters
+    // Getters y Setters necesarios para la GUI y el Simulador
+    public Bloque[] getBloques() {
+        return bloques;
+    }
+
     public Bloque getBloque(int id) {
-        return bloques[id];
+        if (id >= 0 && id < tamanoTotal) {
+            return bloques[id];
+        }
+        return null;
     }
     
     public int getTamanoTotal() {
